@@ -25,6 +25,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "eacea42d-f4e8-4a94-b43a-f19dc934865e"
+      }
+    },
+    "owner": "totob12"
   }
 }
