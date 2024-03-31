@@ -4,7 +4,7 @@ import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import socketIOClient from 'socket.io-client';
 
-const BACKEND_URL = 'https://936ff5c0-26d7-46ed-a685-37d559d3059c-00-38bx89sq6lor3.kirk.replit.dev/'; // Replace with your backend URL
+const BACKEND_URL = 'https://936ff5c0-26d7-46ed-a685-37d559d3059c-00-38bx89sq6lor3.kirk.replit.dev'; // Replace with your backend URL
 const socket = socketIOClient(BACKEND_URL);
 
 export default function App() {
