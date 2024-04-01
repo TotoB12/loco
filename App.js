@@ -1,5 +1,7 @@
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import socketIOClient from 'socket.io-client';
@@ -9,7 +11,10 @@ const socket = socketIOClient(BACKEND_URL);
 
 export default function App() {
   const [location, setLocation] = useState(null);
-  const [otherLocations, setOtherLocations] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [userId, setUserId] = useState(null);
+  const [userName, setUserName] = useState('');
+  const [showNameInput, setShowNameInput] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -21,33 +26,86 @@ export default function App() {
 
       let currentLocation = await Location.getCurrentPositionAsync({});
       setLocation(currentLocation.coords);
-      socket.emit('location', currentLocation.coords);
 
-      socket.on('locations', (locations) => {
-        setOtherLocations(locations.filter((loc) => loc.latitude !== currentLocation.coords.latitude && loc.longitude !== currentLocation.coords.longitude));
+      const id = uuidv4();
+      setUserId(id);
+
+      socket.emit('join', { id, location: currentLocation.coords });
+
+      socket.on('users', (allUsers) => {
+        setUsers(allUsers);
       });
+
+      const locationWatcher = Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 10,
+        },
+        (newLocation) => {
+          setLocation(newLocation.coords);
+          socket.emit('location', { id, location: newLocation.coords });
+        }
+      );
+
+      return () => {
+        locationWatcher.remove();
+        socket.disconnect();
+      };
     })();
   }, []);
 
+  const handleNameChange = (text) => {
+    setUserName(text);
+  };
+
+  const handleNameSubmit = () => {
+    socket.emit('updateName', { id: userId, name: userName });
+    setShowNameInput(false);
+  };
+
+  const handleSettingsPress = () => {
+    setShowNameInput(true);
+  };
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       {location && (
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          }}
-        >
-          <Marker coordinate={location} title="You are here" />
-          {otherLocations.map((loc, index) => (
-            <Marker key={index} coordinate={loc} title="Other user" />
-          ))}
-        </MapView>
+        <>
+          <View style={styles.topBar}>
+            <Text style={styles.appName}>Location Tracker</Text>
+            <TouchableOpacity onPress={handleSettingsPress}>
+              <Text style={styles.settingsIcon}>&#9776;</Text>
+            </TouchableOpacity>
+          </View>
+          {showNameInput && (
+            <View style={styles.nameInputContainer}>
+              <TextInput
+                style={styles.nameInput}
+                placeholder="Enter your name"
+                value={userName}
+                onChangeText={handleNameChange}
+                onSubmitEditing={handleNameSubmit}
+              />
+            </View>
+          )}
+          <MapView
+            style={styles.map}
+            initialRegion={{
+              latitude: location.latitude,
+              longitude: location.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            }}
+          >
+            <Marker coordinate={location} title="You" />
+            {users.map((user) => (
+              <Marker key={user.id} coordinate={user.location} title={`${user.name}`} />
+            ))}
+          </MapView>
+        </>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -56,7 +114,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   map: {
-    width: '100%',
-    height: '100%',
+    flex: 1,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  appName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  settingsIcon: {
+    fontSize: 24,
+  },
+  nameInputContainer: {
+    padding: 16,
+    backgroundColor: '#f0f0f0',
+  },
+  nameInput: {
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 4,
+    paddingHorizontal: 8,
   },
 });
