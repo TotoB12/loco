@@ -14,7 +14,7 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('');
-  const [showNameInput, setShowNameInput] = useState(true);
+  const [currentPage, setCurrentPage] = useState('Map');
 
   useEffect(() => {
     (async () => {
@@ -60,51 +60,60 @@ export default function App() {
 
   const handleNameSubmit = () => {
     socket.emit('updateName', { id: userId, name: userName });
-    setShowNameInput(false);
+    setCurrentPage('Map');
   };
 
   const handleSettingsPress = () => {
-    setShowNameInput(true);
+    setCurrentPage('Settings');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      {location && (
-        <>
-          <View style={styles.topBar}>
-            <Text style={styles.appName}>Location Tracker</Text>
-            <TouchableOpacity onPress={handleSettingsPress}>
-              <Text style={styles.settingsIcon}>&#9776;</Text>
-            </TouchableOpacity>
-          </View>
-          {showNameInput && (
-            <View style={styles.nameInputContainer}>
-              <TextInput
-                style={styles.nameInput}
-                placeholder="Enter your name"
-                value={userName}
-                onChangeText={handleNameChange}
-                onSubmitEditing={handleNameSubmit}
-              />
-            </View>
-          )}
-          <MapView
-            style={styles.map}
-            initialRegion={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-              latitudeDelta: 0.0922,
-              longitudeDelta: 0.0421,
-            }}
-          >
-            <Marker coordinate={location} title="You" />
-            {users.map((user) => (
-              <Marker key={user.id} coordinate={user.location} title={`${user.name}`} />
-            ))}
-          </MapView>
-        </>
+      <View style={styles.topBar}>
+        <Text style={styles.appName}>Location Tracker</Text>
+      </View>
+      {currentPage === 'Map' && location && (
+        <MapView
+          style={styles.map}
+          initialRegion={{
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+        >
+          <Marker coordinate={location} title="You" />
+          {users.map((user) => (
+            <Marker key={user.id} coordinate={user.location} title={`${user.name}`} />
+          ))}
+        </MapView>
       )}
+      {currentPage === 'Settings' && (
+        <View style={styles.settingsContainer}>
+          <Text style={styles.settingsTitle}>Enter your name</Text>
+          <TextInput
+            style={styles.nameInput}
+            value={userName}
+            onChangeText={handleNameChange}
+            onSubmitEditing={handleNameSubmit}
+          />
+        </View>
+      )}
+      <View style={styles.bottomNavBar}>
+        <TouchableOpacity
+          style={[styles.navButton, currentPage === 'Map' && styles.activeNavButton]}
+          onPress={() => setCurrentPage('Map')}
+        >
+          <Text style={styles.navButtonText}>Map</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.navButton, currentPage === 'Settings' && styles.activeNavButton]}
+          onPress={handleSettingsPress}
+        >
+          <Text style={styles.navButtonText}>Settings</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -118,9 +127,8 @@ const styles = StyleSheet.create({
   },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: '#f0f0f0',
   },
@@ -128,18 +136,47 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  settingsIcon: {
-    fontSize: 24,
+  settingsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
   },
-  nameInputContainer: {
-    padding: 16,
-    backgroundColor: '#f0f0f0',
+  settingsTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
   },
   nameInput: {
     height: 40,
+    width: '80%',
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 4,
     paddingHorizontal: 8,
+    marginBottom: 16,
+  },
+  bottomNavBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  navButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 4,
+  },
+  activeNavButton: {
+    backgroundColor: '#007AFF',
+  },
+  navButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#007AFF',
+  },
+  activeNavButtonText: {
+    color: '#fff',
   },
 });
