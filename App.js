@@ -1,71 +1,120 @@
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Image } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import socketIOClient from 'socket.io-client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { v4 as uuidv4 } from 'uuid';
+import 'react-native-get-random-values';
 
 const BACKEND_URL = 'https://936ff5c0-26d7-46ed-a685-37d559d3059c-00-38bx89sq6lor3.kirk.replit.dev';
-const socket = socketIOClient(BACKEND_URL);
+const socket = socketIOClient(BACKEND_URL, {
+  transports: ['websocket'],
+  jsonp: false
+});
 
 export default function App() {
   const [location, setLocation] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [userId, setUserId] = useState(null);
+  const [users, setUsers] = useState({});
+  const [userId, setUserId] = useState(uuidv4());
   const [userName, setUserName] = useState('');
   const [currentPage, setCurrentPage] = useState('Map');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
+    const initLocationTracking = async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.log('Permission to access location was denied');
+        console.error('Permission to access location was denied');
+        setLoading(false);
         return;
       }
 
       let currentLocation = await Location.getCurrentPositionAsync({});
       setLocation(currentLocation.coords);
+      setLoading(false);
 
-      const id = uuidv4();
-      setUserId(id);
-
-      socket.emit('join', { id, location: currentLocation.coords });
+      socket.emit('join', { id: userId, location: currentLocation.coords });
 
       socket.on('users', (allUsers) => {
         setUsers(allUsers);
       });
 
-      const locationWatcher = Location.watchPositionAsync(
+      Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
           distanceInterval: 10,
         },
         (newLocation) => {
           setLocation(newLocation.coords);
-          socket.emit('location', { id, location: newLocation.coords });
+          socket.emit('location', { id: userId, location: newLocation.coords });
         }
-      );
+      ).then((watcher) => {
+        return () => watcher.remove();
+      });
+    };
 
-      return () => {
-        locationWatcher.remove();
-        socket.disconnect();
-      };
-    })();
-  }, []);
+    initLocationTracking();
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [userId]);
 
   const handleNameChange = (text) => {
     setUserName(text);
   };
 
   const handleNameSubmit = () => {
-    socket.emit('updateName', { id: userId, name: userName });
+    socket.emit('updateName', { id: userId, name: userName.trim() });
     setCurrentPage('Map');
   };
 
-  const handleSettingsPress = () => {
-    setCurrentPage('Settings');
-  };
+  const renderMap = () => (
+    <MapView
+      style={styles.map}
+      initialRegion={{
+        latitude: location?.latitude || 0,
+        longitude: location?.longitude || 0,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      }}
+    >
+      {location && (
+        <Marker coordinate={location} title="You">
+          <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
+        </Marker>
+      )}
+      {Object.values(users).map((user) => (
+        <Marker key={user.id} coordinate={user.location} title={user.name || 'Anonymous'}>
+          <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
+        </Marker>
+      ))}
+    </MapView>
+  );
+
+  const renderSettings = () => (
+    <View style={styles.settingsContainer}>
+      <Text style={styles.settingsTitle}>Enter your name</Text>
+      <TextInput
+        style={styles.nameInput}
+        value={userName}
+        onChangeText={(text) => setUserName(text)}
+        onSubmitEditing={handleNameSubmit}
+      />
+      <TouchableOpacity onPress={handleNameSubmit} style={styles.saveButton}>
+        <Text style={styles.saveButtonText}>Save</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -73,33 +122,7 @@ export default function App() {
       <View style={styles.topBar}>
         <Text style={styles.appName}>Location Tracker</Text>
       </View>
-      {currentPage === 'Map' && location && (
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          }}
-        >
-          <Marker coordinate={location} title="You" />
-          {users.map((user) => (
-            <Marker key={user.id} coordinate={user.location} title={`${user.name}`} />
-          ))}
-        </MapView>
-      )}
-      {currentPage === 'Settings' && (
-        <View style={styles.settingsContainer}>
-          <Text style={styles.settingsTitle}>Enter your name</Text>
-          <TextInput
-            style={styles.nameInput}
-            value={userName}
-            onChangeText={handleNameChange}
-            onSubmitEditing={handleNameSubmit}
-          />
-        </View>
-      )}
+      {currentPage === 'Map' ? renderMap() : renderSettings()}
       <View style={styles.bottomNavBar}>
         <TouchableOpacity
           style={[styles.navButton, currentPage === 'Map' && styles.activeNavButton]}
@@ -109,7 +132,7 @@ export default function App() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.navButton, currentPage === 'Settings' && styles.activeNavButton]}
-          onPress={handleSettingsPress}
+          onPress={() => setCurrentPage('Settings')}
         >
           <Text style={styles.navButtonText}>Settings</Text>
         </TouchableOpacity>
@@ -176,7 +199,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#007AFF',
   },
-  activeNavButtonText: {
-    color: '#fff',
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveButton: {
+    backgroundColor: '#007AFF',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  userIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
   },
 });
