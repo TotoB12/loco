@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
 import 'react-native-get-random-values';
 
-const BACKEND_URL = 'https://936ff5c0-26d7-46ed-a685-37d559d3059c-00-38bx89sq6lor3.kirk.replit.dev';
+const BACKEND_URL = 'https://936ff5c0-26d7-46ed-a685-37d559d3059c-00-38bx89sq6lor3.kirk.repl.co';
 const socket = socketIOClient(BACKEND_URL, {
   transports: ['websocket'],
   jsonp: false
@@ -50,7 +50,11 @@ export default function App() {
           socket.emit('location', { id: userId, location: newLocation.coords });
         }
       ).then((watcher) => {
-        return () => watcher.remove();
+        return () => {
+          watcher?.remove();
+          socket.disconnect();
+        };
+        
       });
     };
 
