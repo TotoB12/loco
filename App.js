@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Image } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, AnimatedRegion } from 'react-native-maps';
 import * as Location from 'expo-location';
 import 'react-native-get-random-values';
 import { initializeApp } from 'firebase/app';
@@ -40,6 +40,7 @@ export default function App() {
   const [userName, setUserName] = useState('');
   const [currentPage, setCurrentPage] = useState('Map');
   const [loading, setLoading] = useState(true);
+  const userMarkers = useRef(new Map()).current;
 
   useEffect(() => {
     const initLocationTracking = async () => {
@@ -63,19 +64,32 @@ export default function App() {
       const usersRef = ref(database, 'users');
       onValue(usersRef, (snapshot) => {
         const data = snapshot.val() || {};
+        Object.entries(data).forEach(([id, user]) => {
+          if (id !== userId) {
+            const newRegion = new AnimatedRegion({
+              latitude: user.location.latitude,
+              longitude: user.location.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            });
+            if (userMarkers.has(id)) {
+              const region = userMarkers.get(id);
+              region.timing(newRegion).start();
+            } else {
+              userMarkers.set(id, newRegion);
+            }
+          }
+        });
         setUsers(data);
       });
 
-      Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 10,
-        },
-        (newLocation) => {
-          setLocation(newLocation.coords);
-          update(userRef, { location: newLocation.coords });
-        }
-      ).then((watcher) => {
+      Location.watchPositionAsync({
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 10,
+      }, (newLocation) => {
+        setLocation(newLocation.coords);
+        update(userRef, { location: newLocation.coords });
+      }).then((watcher) => {
         return () => watcher.remove();
       });
     };
@@ -86,16 +100,6 @@ export default function App() {
       set(userRef, null);
     };
   }, [userId, userName]);
-
-  const handleNameChange = (text) => {
-    setUserName(text);
-  };
-
-  const handleNameSubmit = () => {
-    const userRef = ref(database, `users/${userId}`);
-    update(userRef, { name: userName.trim() });
-    setCurrentPage('Map');
-  };
 
   const renderMap = () => (
     <MapView
@@ -108,14 +112,27 @@ export default function App() {
       }}
     >
       {location && (
-        <Marker key={userId} coordinate={location} title="You">
+        <Marker.Animated
+          key={userId}
+          coordinate={new AnimatedRegion({
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          })}
+          title="You"
+        >
           <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
-        </Marker>
+        </Marker.Animated>
       )}
       {Object.entries(users).filter(([id]) => id !== userId).map(([id, user]) => (
-        <Marker key={id} coordinate={user.location} title={user.name || 'Anonymous'}>
+        <Marker.Animated
+          key={id}
+          coordinate={userMarkers.get(id)}
+          title={user.name || 'Anonymous'}
+        >
           <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
-        </Marker>
+        </Marker.Animated>
       ))}
     </MapView>
   );
