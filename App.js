@@ -2,21 +2,41 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Image } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
-import socketIOClient from 'socket.io-client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { v4 as uuidv4 } from 'uuid';
 import 'react-native-get-random-values';
+import { initializeApp } from 'firebase/app';
+// import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { getDatabase, ref, onValue, set, update } from 'firebase/database';
 
-const BACKEND_URL = 'https://936ff5c0-26d7-46ed-a685-37d559d3059c-00-38bx89sq6lor3.kirk.repl.co';
-const socket = socketIOClient(BACKEND_URL, {
-  transports: ['websocket'],
-  jsonp: false
-});
+const firebaseConfig = {
+  apiKey: "AIzaSyC_TXnoiNb8Q0fCN5PiRiXMxryP-4nBkbk",
+  authDomain: "loco-totob12.firebaseapp.com",
+  databaseURL: "https://loco-totob12-default-rtdb.firebaseio.com",
+  projectId: "loco-totob12",
+  storageBucket: "loco-totob12.appspot.com",
+  messagingSenderId: "252756761693",
+  appId: "1:252756761693:web:c58400b90a4365c97101b4",
+};
+
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
+// const appCheck = initializeAppCheck(app, {
+//   provider: new ReCaptchaV3Provider('6LdQk9MpAAAAAL7idKIh7UBxmLGozie2zvKwrdrq'),
+//   isTokenAutoRefreshEnabled: true
+// });
+
+function generateUuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = (Math.random() * 16) | 0,
+      v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 export default function App() {
   const [location, setLocation] = useState(null);
   const [users, setUsers] = useState({});
-  const [userId, setUserId] = useState(uuidv4());
+  const [userId, setUserId] = useState(generateUuid());
   const [userName, setUserName] = useState('');
   const [currentPage, setCurrentPage] = useState('Map');
   const [loading, setLoading] = useState(true);
@@ -34,10 +54,16 @@ export default function App() {
       setLocation(currentLocation.coords);
       setLoading(false);
 
-      socket.emit('join', { id: userId, location: currentLocation.coords });
+      const userRef = ref(database, `users/${userId}`);
+      set(userRef, {
+        name: userName,
+        location: currentLocation.coords,
+      });
 
-      socket.on('users', (allUsers) => {
-        setUsers(allUsers);
+      const usersRef = ref(database, 'users');
+      onValue(usersRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        setUsers(data);
       });
 
       Location.watchPositionAsync(
@@ -47,30 +73,27 @@ export default function App() {
         },
         (newLocation) => {
           setLocation(newLocation.coords);
-          socket.emit('location', { id: userId, location: newLocation.coords });
+          update(userRef, { location: newLocation.coords });
         }
       ).then((watcher) => {
-        return () => {
-          watcher?.remove();
-          socket.disconnect();
-        };
-        
+        return () => watcher.remove();
       });
     };
 
     initLocationTracking();
-
     return () => {
-      socket.disconnect();
+      const userRef = ref(database, `users/${userId}`);
+      set(userRef, null);
     };
-  }, [userId]);
+  }, [userId, userName]);
 
   const handleNameChange = (text) => {
     setUserName(text);
   };
 
   const handleNameSubmit = () => {
-    socket.emit('updateName', { id: userId, name: userName.trim() });
+    const userRef = ref(database, `users/${userId}`);
+    update(userRef, { name: userName.trim() });
     setCurrentPage('Map');
   };
 
@@ -85,46 +108,31 @@ export default function App() {
       }}
     >
       {location && (
-        <Marker coordinate={location} title="You">
+        <Marker key={userId} coordinate={location} title="You">
           <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
         </Marker>
       )}
-      {Object.values(users).map((user) => (
-        <Marker key={user.id} coordinate={user.location} title={user.name || 'Anonymous'}>
+      {Object.entries(users).filter(([id]) => id !== userId).map(([id, user]) => (
+        <Marker key={id} coordinate={user.location} title={user.name || 'Anonymous'}>
           <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
         </Marker>
       ))}
     </MapView>
   );
 
-  const renderSettings = () => (
-    <View style={styles.settingsContainer}>
-      <Text style={styles.settingsTitle}>Enter your name</Text>
-      <TextInput
-        style={styles.nameInput}
-        value={userName}
-        onChangeText={(text) => setUserName(text)}
-        onSubmitEditing={handleNameSubmit}
-      />
-      <TouchableOpacity onPress={handleNameSubmit} style={styles.saveButton}>
-        <Text style={styles.saveButtonText}>Save</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#00ADB5" />
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#222831" />
       <View style={styles.topBar}>
-        <Text style={styles.appName}>Location Tracker</Text>
+        <Text style={styles.appName}>Loco</Text>
       </View>
       {currentPage === 'Map' ? renderMap() : renderSettings()}
       <View style={styles.bottomNavBar}>
@@ -148,6 +156,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#222831',
   },
   map: {
     flex: 1,
@@ -157,59 +166,65 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#393E46',
   },
   appName: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#EEEEEE',
   },
   settingsContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#222831',
   },
   settingsTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
+    color: '#EEEEEE',
   },
   nameInput: {
     height: 40,
     width: '80%',
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#00ADB5',
     borderRadius: 4,
     paddingHorizontal: 8,
     marginBottom: 16,
+    color: '#EEEEEE',
+    backgroundColor: '#393E46',
   },
   bottomNavBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingVertical: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#393E46',
   },
   navButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 4,
+    backgroundColor: '#222831',
   },
   activeNavButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#00ADB5',
   },
   navButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: '#EEEEEE',
   },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#222831',
   },
   saveButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#00ADB5',
     padding: 10,
     borderRadius: 5,
     marginTop: 10,
