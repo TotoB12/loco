@@ -114,8 +114,8 @@ export default function App() {
 
   const renderMap = () => (
     <MapView
-    // provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-    provider={PROVIDER_GOOGLE}
+    provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+    // provider={PROVIDER_GOOGLE}
     style={styles.map}
     initialRegion={{
       latitude: location?.latitude || 0,
