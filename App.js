@@ -128,6 +128,21 @@ export default function App() {
     );
   }
 
+  const renderSettings = () => (
+    <View style={styles.settingsContainer}>
+      <Text style={styles.settingsTitle}>Enter your name</Text>
+      <TextInput
+        style={styles.nameInput}
+        value={userName}
+        onChangeText={handleNameChange}
+        onSubmitEditing={handleNameSubmit}
+      />
+      <TouchableOpacity onPress={handleNameSubmit} style={styles.saveButton}>
+        <Text style={styles.saveButtonText}>Save</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#222831" />
