@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Image } from 'react-native';
-import MapView, { Marker, AnimatedRegion } from 'react-native-maps';
+import { StyleSheet, View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Image, Platform } from 'react-native';
+import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import 'react-native-get-random-values';
 import { initializeApp } from 'firebase/app';
 // import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import { getDatabase, ref, onValue, set, update } from 'firebase/database';
+import { customMapStyle } from './mapStyles';
 
 const firebaseConfig = {
   apiKey: "AIzaSyC_TXnoiNb8Q0fCN5PiRiXMxryP-4nBkbk",
@@ -101,16 +102,36 @@ export default function App() {
     };
   }, [userId, userName]);
 
+  const handleNameChange = (text) => {
+    setUserName(text);
+  };
+
+  const handleNameSubmit = () => {
+    const userRef = ref(database, `users/${userId}`);
+    update(userRef, { name: userName.trim() });
+    setCurrentPage('Map');
+  };
+
   const renderMap = () => (
     <MapView
-      style={styles.map}
-      initialRegion={{
-        latitude: location?.latitude || 0,
-        longitude: location?.longitude || 0,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      }}
-    >
+    // provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+    provider={PROVIDER_GOOGLE}
+    style={styles.map}
+    initialRegion={{
+      latitude: location?.latitude || 0,
+      longitude: location?.longitude || 0,
+      latitudeDelta: 0.0922,
+      longitudeDelta: 0.0421,
+    }}
+    // customMapStyle={Platform.OS === 'android' ? customMapStyle : undefined}
+    customMapStyle={customMapStyle}
+    // mapPadding={{
+    //   top: 0,
+    //   right: 0,
+    //   bottom: -50,
+    //   left: 0
+    //  }}
+  >
       {location && (
         <Marker.Animated
           key={userId}
@@ -192,6 +213,7 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+    // height: '110%',
   },
   topBar: {
     flexDirection: 'row',
