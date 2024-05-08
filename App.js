@@ -1,46 +1,89 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Image, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Image, Platform } from 'react-native';
 import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import 'react-native-get-random-values';
 import { initializeApp } from 'firebase/app';
-// import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import { getDatabase, ref, onValue, set, update } from 'firebase/database';
-import { customMapStyle } from './mapStyles';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyC_TXnoiNb8Q0fCN5PiRiXMxryP-4nBkbk",
-  authDomain: "loco-totob12.firebaseapp.com",
-  databaseURL: "https://loco-totob12-default-rtdb.firebaseio.com",
-  projectId: "loco-totob12",
-  storageBucket: "loco-totob12.appspot.com",
-  messagingSenderId: "252756761693",
-  appId: "1:252756761693:web:c58400b90a4365c97101b4",
-};
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import ViewPager from '@react-native-community/viewpager';
+import { generateUsername } from './generateUsername';
+import { customMapStyle, styles } from './styles';
+import { firebaseConfig } from './firebaseConfig';
 
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
-// const appCheck = initializeAppCheck(app, {
-//   provider: new ReCaptchaV3Provider('6LdQk9MpAAAAAL7idKIh7UBxmLGozie2zvKwrdrq'),
-//   isTokenAutoRefreshEnabled: true
-// });
+async function generateUuidAndSave() {
+  const existingUuid = await AsyncStorage.getItem('userId');
+  if (!existingUuid) {
+    const uuid = generateUuid();
+    await AsyncStorage.setItem('userId', uuid);
+    return uuid;
+  }
+  return existingUuid;
+}
 
 function generateUuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     var r = (Math.random() * 16) | 0,
       v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
 
-export default function App() {
+const Tab = createBottomTabNavigator();
+
+function OnboardingScreen({ onFinish }) {
+  const pagerRef = useRef(null);
+  const [username, setUsername] = useState(generateUsername("-", 3));
+
+  return (
+    <ViewPager style={{ flex: 1 }} ref={pagerRef}>
+      <View key="1" style={styles.page}>
+        <Text style={styles.title}>Welcome to Loco</Text>
+        <FontAwesome6 name="earth-americas" size={100} color="white" />
+        <TouchableOpacity onPress={() => pagerRef.current.setPage(1)} style={styles.button}>
+          <Text style={styles.buttonText}>Next</Text>
+        </TouchableOpacity>
+      </View>
+      <View key="2" style={[styles.page, { backgroundColor: '#07689f' }]}>
+        <Text style={styles.title}>Choose Your Name</Text>
+        <TextInput
+          style={styles.input}
+          onChangeText={setUsername}
+          value={username}
+          placeholder="Enter your username"
+        />
+        <TouchableOpacity onPress={() => pagerRef.current.setPage(2)} style={styles.button}>
+          <Text style={styles.buttonText}>Save</Text>
+        </TouchableOpacity>
+      </View>
+      <View key="3" style={[styles.page, { backgroundColor: '#eb8f8f' }]}>
+        <Text style={styles.title}>smt idk anymore</Text>
+        <FontAwesome6 name="globe" size={100} color="white" />
+        <TouchableOpacity onPress={async () => {
+          const userId = await generateUuidAndSave();
+          await AsyncStorage.setItem('userName', username);
+          onFinish(username, userId);
+        }} style={styles.button}>
+          <Text style={styles.buttonText}>Finish Setup</Text>
+        </TouchableOpacity>
+      </View>
+    </ViewPager>
+  );
+}
+
+function MapScreen() {
   const [location, setLocation] = useState(null);
+  const [initialRegionSet, setInitialRegionSet] = useState(false);
   const [users, setUsers] = useState({});
-  const [userId, setUserId] = useState(generateUuid());
+  const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
-  const [currentPage, setCurrentPage] = useState('Map');
-  const [loading, setLoading] = useState(true);
+  // const [currentPage, setCurrentPage] = useState('Map');
   const userMarkers = useRef(new Map()).current;
 
   useEffect(() => {
@@ -48,117 +91,71 @@ export default function App() {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         console.error('Permission to access location was denied');
-        setLoading(false);
         return;
       }
 
       let currentLocation = await Location.getCurrentPositionAsync({});
       setLocation(currentLocation.coords);
-      setLoading(false);
+      setInitialRegionSet(true);
 
-      const userRef = ref(database, `users/${userId}`);
-      set(userRef, {
-        name: userName,
-        location: currentLocation.coords,
-      });
+      const storedUserId = await AsyncStorage.getItem('userId');
+      const storedUserName = await AsyncStorage.getItem('userName');
 
-      const usersRef = ref(database, 'users');
-      onValue(usersRef, (snapshot) => {
-        const data = snapshot.val() || {};
-        Object.entries(data).forEach(([id, user]) => {
-          if (id !== userId) {
-            const newRegion = new AnimatedRegion({
-              latitude: user.location.latitude,
-              longitude: user.location.longitude,
-              latitudeDelta: 0.0922,
-              longitudeDelta: 0.0421,
-            });
-            if (userMarkers.has(id)) {
-              const region = userMarkers.get(id);
-              region.timing(newRegion).start();
-            } else {
-              userMarkers.set(id, newRegion);
-            }
-          }
+      if (storedUserId && storedUserName) {
+        setUserId(storedUserId);
+        setUserName(storedUserName);
+
+        const userRef = ref(database, `users/${storedUserId}`);
+        set(userRef, {
+          name: storedUserName,
+          location: currentLocation.coords,
+          timestamp: Date.now(),
         });
-        setUsers(data);
-      });
 
-      Location.watchPositionAsync({
-        accuracy: Location.Accuracy.High,
-        distanceInterval: 10,
-      }, (newLocation) => {
-        setLocation(newLocation.coords);
-        update(userRef, { location: newLocation.coords });
-      }).then((watcher) => {
-        return () => watcher.remove();
-      });
+        const usersRef = ref(database, 'users');
+        onValue(usersRef, (snapshot) => {
+          const data = snapshot.val() || {};
+          Object.entries(data).forEach(([id, user]) => {
+            if (id !== userId) {
+              const newRegion = new AnimatedRegion({
+                latitude: user.location.latitude,
+                longitude: user.location.longitude,
+                latitudeDelta: 0.0922,
+                longitudeDelta: 0.0421,
+              });
+              if (userMarkers.has(id)) {
+                const region = userMarkers.get(id);
+                region.timing(newRegion).start();
+              } else {
+                userMarkers.set(id, newRegion);
+              }
+            }
+          });
+          setUsers(data);
+        });
+
+        Location.watchPositionAsync({
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 10,
+        }, (newLocation) => {
+          setLocation(newLocation.coords);
+          update(userRef, { location: newLocation.coords, timestamp: Date.now() });
+        }).then((watcher) => {
+          return () => watcher.remove();
+        });
+      }
     };
 
     initLocationTracking();
     return () => {
-      const userRef = ref(database, `users/${userId}`);
-      set(userRef, null);
+      if (userId) {
+        const userRef = ref(database, `users/${userId}`);
+        set(userRef, null);
+      }
     };
-  }, [userId, userName]);
+  }, []);
 
-  const handleNameChange = (text) => {
-    setUserName(text);
-  };
-
-  const handleNameSubmit = () => {
-    const userRef = ref(database, `users/${userId}`);
-    update(userRef, { name: userName.trim() });
-    setCurrentPage('Map');
-  };
-
-  const renderMap = () => (
-    <MapView
-    provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-    // provider={PROVIDER_GOOGLE}
-    style={styles.map}
-    initialRegion={{
-      latitude: location?.latitude || 0,
-      longitude: location?.longitude || 0,
-      latitudeDelta: 0.0922,
-      longitudeDelta: 0.0421,
-    }}
-    // customMapStyle={Platform.OS === 'android' ? customMapStyle : undefined}
-    customMapStyle={customMapStyle}
-    // mapPadding={{
-    //   top: 0,
-    //   right: 0,
-    //   bottom: -50,
-    //   left: 0
-    //  }}
-  >
-      {location && (
-        <Marker.Animated
-          key={userId}
-          coordinate={new AnimatedRegion({
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          })}
-          title="You"
-        >
-          <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
-        </Marker.Animated>
-      )}
-      {Object.entries(users).filter(([id]) => id !== userId).map(([id, user]) => (
-        <Marker.Animated
-          key={id}
-          coordinate={userMarkers.get(id)}
-          title={user.name || 'Anonymous'}
-        >
-          <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
-        </Marker.Animated>
-      ))}
-    </MapView>
-  );
-
-  if (loading) {
+  if (!initialRegionSet) {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color="#00ADB5" />
@@ -166,7 +163,88 @@ export default function App() {
     );
   }
 
-  const renderSettings = () => (
+  return (
+    <View style={{ flex: 1 }}>
+      <MapView
+        // provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        provider={PROVIDER_GOOGLE}
+        style={styles.map}
+        initialRegion={{
+          latitude: location?.latitude || 0,
+          longitude: location?.longitude || 0,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        }}
+        customMapStyle={customMapStyle}
+      >
+        <TextInput
+          placeholder="Search for a place..."
+          style={styles.searchBar}
+        />
+        {location && (
+          <Marker.Animated
+            key={userId}
+            coordinate={new AnimatedRegion({
+              latitude: location.latitude,
+              longitude: location.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            })}
+            title="You"
+          >
+            <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
+          </Marker.Animated>
+        )}
+        {Object.entries(users).filter(([id]) => id !== userId).map(([id, user]) => (
+          <Marker.Animated
+            key={id}
+            coordinate={userMarkers.get(id)}
+            title={user.name || 'Anonymous'}
+          >
+            <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
+          </Marker.Animated>
+        ))}
+      </MapView>
+    </View>
+  );
+}
+
+// if (loading) {
+//   return (
+//     <View style={styles.loaderContainer}>
+//       <ActivityIndicator size="large" color="#00ADB5" />
+//     </View>
+//   );
+// }
+
+function FriendsScreen() {
+  return (
+    <View style={styles.centered}>
+      <Text>people</Text>
+    </View>
+  );
+}
+
+function YouScreen() {
+  const [userName, setUserName] = useState('');
+
+  const handleNameChange = (text) => {
+    setUserName(text);
+  };
+
+  const handleNameSubmit = async () => {
+    const storedUserId = await AsyncStorage.getItem('userId');
+    if (storedUserId) {
+      const userRef = ref(database, `users/${storedUserId}`);
+      update(userRef, { name: userName.trim() });
+      await AsyncStorage.setItem('userName', userName.trim());
+    }
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+  return (
     <View style={styles.settingsContainer}>
       <Text style={styles.settingsTitle}>Enter your name</Text>
       <TextInput
@@ -178,119 +256,74 @@ export default function App() {
       <TouchableOpacity onPress={handleNameSubmit} style={styles.saveButton}>
         <Text style={styles.saveButtonText}>Save</Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={
+        async () => {
+          await AsyncStorage.clear();
+        }
+      } style={styles.saveButton}>
+        <Text style={styles.saveButtonText}>Delete All Data</Text>
+      </TouchableOpacity>
     </View>
-  );
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#222831" />
-      <View style={styles.topBar}>
-        <Text style={styles.appName}>Loco</Text>
-      </View>
-      {currentPage === 'Map' ? renderMap() : renderSettings()}
-      <View style={styles.bottomNavBar}>
-        <TouchableOpacity
-          style={[styles.navButton, currentPage === 'Map' && styles.activeNavButton]}
-          onPress={() => setCurrentPage('Map')}
-        >
-          <Text style={styles.navButtonText}>Map</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.navButton, currentPage === 'Settings' && styles.activeNavButton]}
-          onPress={() => setCurrentPage('Settings')}
-        >
-          <Text style={styles.navButtonText}>Settings</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#222831',
-  },
-  map: {
-    flex: 1,
-    // height: '110%',
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 8,
-    backgroundColor: '#393E46',
-  },
-  appName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#EEEEEE',
-  },
-  settingsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#222831',
-  },
-  settingsTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#EEEEEE',
-  },
-  nameInput: {
-    height: 40,
-    width: '80%',
-    borderWidth: 1,
-    borderColor: '#00ADB5',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    marginBottom: 16,
-    color: '#EEEEEE',
-    backgroundColor: '#393E46',
-  },
-  bottomNavBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 8,
-    backgroundColor: '#393E46',
-  },
-  navButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 4,
-    backgroundColor: '#222831',
-  },
-  activeNavButton: {
-    backgroundColor: '#00ADB5',
-  },
-  navButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#EEEEEE',
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#222831',
-  },
-  saveButton: {
-    backgroundColor: '#00ADB5',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-  },
-  saveButtonText: {
-    color: 'white',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  userIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-  },
-});
+export default function App() {
+  const [showOnboarding, setShowOnboarding] = useState(null);
+  const [userName, setUserName] = useState('');
+  const [userId, setUserId] = useState('');
+
+  useEffect(() => {
+    const checkUserData = async () => {
+      const storedUserName = await AsyncStorage.getItem('userName');
+      const storedUserId = await AsyncStorage.getItem('userId');
+      if (storedUserId && storedUserName) {
+        setUserId(storedUserId);
+        setUserName(storedUserName);
+        setShowOnboarding(false);
+      } else {
+        setShowOnboarding(true);
+      }
+    };
+
+    checkUserData();
+  }, []);
+
+  const handleFinishOnboarding = (username, userId) => {
+    setUserName(username);
+    setUserId(userId);
+    setShowOnboarding(false);
+  };
+
+  if (showOnboarding) {
+    return <OnboardingScreen onFinish={handleFinishOnboarding} />;
+  }
+
+  console.log('Finished onboarding:', userName, userId);
+
+  return (
+    <NavigationContainer>
+      <Tab.Navigator screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: '#00ADB5',
+        tabBarInactiveTintColor: '#EEEEEE',
+        tabBarStyle: styles.bottomNavBar,
+      }}>
+        <Tab.Screen name="Map" component={MapScreen} options={{
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome6 name="earth-americas" size={size} color={color} />
+          ),
+        }} />
+        <Tab.Screen name="Friends" component={FriendsScreen} options={{
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome6 name="users" size={size} color={color} />
+          ),
+        }} />
+        <Tab.Screen name="You" component={YouScreen} options={{
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome6 name="user" size={size} color={color} />
+          ),
+        }} />
+      </Tab.Navigator>
+    </NavigationContainer>
+  );
+}

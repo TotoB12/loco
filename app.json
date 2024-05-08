@@ -2,7 +2,7 @@
   "expo": {
     "name": "loco",
     "slug": "loco",
-    "version": "1.0.0",
+    "version": "0.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,12 +15,22 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.antoninbeliard.loco",
+      "config": {
+        "googleMapsApiKey": "AIzaSyB7NMaMY_YmXpY_pA6Xz0jfyB5J-xAodcI"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "package": "com.antoninbeliard.loco",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyA7_2YtDt6Yj0H-ZlqYNZGM9qDYHY0O_c0"
+        }
       }
     },
     "web": {

@@ -1,0 +1,7 @@
+eas build:configure
+
+eas build --platform android
+eas build --platform ios
+eas build --platform all
+
+java -jar bundletool.jar build-apks --bundle=filename.aab --output=newfilename.apks --mode=universal
