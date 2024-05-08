@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Image, Platform } from 'react-native';
+import { Avatar } from '@rneui/themed';
 import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import 'react-native-get-random-values';
@@ -11,7 +12,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import ViewPager from '@react-native-community/viewpager';
 import { generateUsername } from './generateUsername';
-import { customMapStyle, styles } from './styles';
+import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
 
 const app = initializeApp(firebaseConfig);
@@ -36,6 +37,34 @@ function generateUuid() {
 }
 
 const Tab = createBottomTabNavigator();
+
+const Header = () => {
+  return (
+    <SafeAreaView style={styles.headerContainer}>
+    </SafeAreaView>
+  );
+};
+
+const UserAvatarMarker = ({ user, size }) => {
+  const getInitials = (name) => {
+    return name.split(' ').map((n) => n[0]).join('').toUpperCase();
+  };
+
+  const getTwoFirstLetters = (name) => {
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  return (
+    // <Marker.Animated coordinate={coordinate} title={user.name || 'Anonymous'}>
+    <Avatar
+      size={size || 30}
+      rounded
+      title={getTwoFirstLetters(user.name)}
+      containerStyle={{ backgroundColor: "#00ADB5" }}
+    />
+    // </Marker.Animated>
+  );
+};
 
 function OnboardingScreen({ onFinish }) {
   const pagerRef = useRef(null);
@@ -83,7 +112,6 @@ function MapScreen() {
   const [users, setUsers] = useState({});
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
-  // const [currentPage, setCurrentPage] = useState('Map');
   const userMarkers = useRef(new Map()).current;
 
   useEffect(() => {
@@ -165,9 +193,10 @@ function MapScreen() {
 
   return (
     <View style={{ flex: 1 }}>
+      <Header />
       <MapView
-        // provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        provider={PROVIDER_GOOGLE}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        // provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={{
           latitude: location?.latitude || 0,
@@ -192,16 +221,16 @@ function MapScreen() {
             })}
             title="You"
           >
-            <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
+            <UserAvatarMarker
+              user={{ name: userName }}
+            />
           </Marker.Animated>
         )}
         {Object.entries(users).filter(([id]) => id !== userId).map(([id, user]) => (
-          <Marker.Animated
-            key={id}
-            coordinate={userMarkers.get(id)}
-            title={user.name || 'Anonymous'}
-          >
-            <Image source={{ uri: "https://i.imgur.com/iT8KFY5.jpg" }} style={styles.userIcon} />
+          <Marker.Animated key={id} coordinate={userMarkers.get(id)} title={user.name || 'Anonymous'}>
+            <UserAvatarMarker
+              user={user}
+            />
           </Marker.Animated>
         ))}
       </MapView>
@@ -220,6 +249,7 @@ function MapScreen() {
 function FriendsScreen() {
   return (
     <View style={styles.centered}>
+      <Header />
       <Text>people</Text>
     </View>
   );
@@ -227,41 +257,53 @@ function FriendsScreen() {
 
 function YouScreen() {
   const [userName, setUserName] = useState('');
+  const [userId, setUserId] = useState('');
 
-  const handleNameChange = (text) => {
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const storedUserName = await AsyncStorage.getItem('userName');
+      const storedUserId = await AsyncStorage.getItem('userId');
+      if (storedUserName) setUserName(storedUserName);
+      if (storedUserId) setUserId(storedUserId);
+    };
+
+    fetchUserData();
+  }, []);
+
+  const handleNameChange = text => {
     setUserName(text);
   };
 
   const handleNameSubmit = async () => {
-    const storedUserId = await AsyncStorage.getItem('userId');
-    if (storedUserId) {
-      const userRef = ref(database, `users/${storedUserId}`);
+    if (userId) {
+      const userRef = ref(database, `users/${userId}`);
       update(userRef, { name: userName.trim() });
       await AsyncStorage.setItem('userName', userName.trim());
     }
   };
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-  };
   return (
     <View style={styles.settingsContainer}>
-      <Text style={styles.settingsTitle}>Enter your name</Text>
+      <Header />
+      <Text style={styles.settingsTitle}>Your Profile</Text>
       <TextInput
         style={styles.nameInput}
         value={userName}
         onChangeText={handleNameChange}
+        placeholder="Enter your name"
+        placeholderTextColor="#CCCCCC"
         onSubmitEditing={handleNameSubmit}
       />
       <TouchableOpacity onPress={handleNameSubmit} style={styles.saveButton}>
         <Text style={styles.saveButtonText}>Save</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={
-        async () => {
-          await AsyncStorage.clear();
-        }
-      } style={styles.saveButton}>
-        <Text style={styles.saveButtonText}>Delete All Data</Text>
+      <Text style={styles.uuidText}>Your UUID: {userId}</Text>
+      <TouchableOpacity onPress={async () => {
+        await AsyncStorage.clear();
+        setUserName('');
+        setUserId('');
+      }} style={styles.deleteButton}>
+        <Text style={styles.deleteButtonText}>Delete All Data</Text>
       </TouchableOpacity>
     </View>
   );
@@ -298,7 +340,9 @@ export default function App() {
     return <OnboardingScreen onFinish={handleFinishOnboarding} />;
   }
 
-  console.log('Finished onboarding:', userName, userId);
+  const getTwoFirstLetters = (name) => {
+    return name.substring(0, 2).toUpperCase();
+  };
 
   return (
     <NavigationContainer>
@@ -320,7 +364,13 @@ export default function App() {
         }} />
         <Tab.Screen name="You" component={YouScreen} options={{
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome6 name="user" size={size} color={color} />
+            // <Avatar
+            //   size={size}
+            //   rounded
+            //   title={getTwoFirstLetters(userName)}
+            //   containerStyle={{ backgroundColor: "#00ADB5" }}
+            // />
+            <UserAvatarMarker user={{ name: userName }} size={size} />
           ),
         }} />
       </Tab.Navigator>
