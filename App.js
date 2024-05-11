@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Image, Platform } from 'react-native';
-import { Avatar } from '@rneui/themed';
+import { Avatar, Button, Icon, SearchBar, Chip } from '@rneui/themed';
 import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import 'react-native-get-random-values';
@@ -47,10 +47,16 @@ const Header = () => {
 
 const UserAvatarMarker = ({ user, size }) => {
   const getInitials = (name) => {
+    if (!name) {
+      return "";
+    }
     return name.split(' ').map((n) => n[0]).join('').toUpperCase();
   };
 
   const getTwoFirstLetters = (name) => {
+    if (!name) {
+      return "";
+    }
     return name.substring(0, 2).toUpperCase();
   };
 
@@ -112,6 +118,8 @@ function MapScreen() {
   const [users, setUsers] = useState({});
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchBarRef = useRef(null);
   const userMarkers = useRef(new Map()).current;
 
   useEffect(() => {
@@ -183,6 +191,21 @@ function MapScreen() {
     };
   }, []);
 
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    // do stuff
+  };
+
+  const handleAllPress = () => {
+    // Handle logic for All chip
+    console.log('All was pressed!');
+  };
+
+  const handleFriendsPress = () => {
+    // Handle logic for Friends chip
+    console.log('Friends was pressed!');
+  };
+
   if (!initialRegionSet) {
     return (
       <View style={styles.loaderContainer}>
@@ -194,9 +217,49 @@ function MapScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Header />
+      <View style={styles.filterContainer}>
+        <SearchBar
+          placeholder="Search for friends..."
+          onChangeText={handleSearch}
+          value={searchQuery}
+          ref={searchBarRef}
+          containerStyle={styles.searchContainerStyle}
+          inputContainerStyle={styles.searchInputContainerStyle}
+          inputStyle={styles.searchInputStyle}
+          round
+        />
+        <View style={styles.chipsContainer}>
+          <Chip
+            title="All"
+            icon={{
+              name: 'globe',
+              type: 'font-awesome',
+              size: 20,
+              // color: '#00ADB5',
+            }}
+            onPress={handleAllPress}
+            type="outline"
+            containerStyle={styles.chipContainerStyle}
+            buttonStyle={styles.chipStyle}
+          />
+          <Chip
+            title="Friends"
+            icon={{
+              name: 'users',
+              type: 'font-awesome',
+              size: 20,
+              // color: '#00ADB5',
+            }}
+            onPress={handleFriendsPress}
+            type="outline"
+            containerStyle={styles.chipContainerStyle}
+            buttonStyle={styles.chipStyle}
+          />
+        </View>
+      </View>
       <MapView
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        // provider={PROVIDER_GOOGLE}
+        // provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={{
           latitude: location?.latitude || 0,
@@ -206,10 +269,17 @@ function MapScreen() {
         }}
         customMapStyle={customMapStyle}
       >
-        <TextInput
-          placeholder="Search for a place..."
+        {/* <TextInput
+          placeholder="Search for friends..."
           style={styles.searchBar}
-        />
+        /> */}
+        {/* <SearchBar
+          placeholder="Search for friends..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          // containerStyle={{ width: '100%', backgroundColor: 'transparent', borderTopWidth: 0, borderBottomWidth: 0 }}
+          inputContainerStyle={{ backgroundColor: 'white' }}
+        /> */}
         {location && (
           <Marker.Animated
             key={userId}
@@ -263,8 +333,12 @@ function YouScreen() {
     const fetchUserData = async () => {
       const storedUserName = await AsyncStorage.getItem('userName');
       const storedUserId = await AsyncStorage.getItem('userId');
-      if (storedUserName) setUserName(storedUserName);
-      if (storedUserId) setUserId(storedUserId);
+      if (storedUserName) {
+        setUserName(storedUserName);
+      }
+      if (storedUserId) {
+        setUserId(storedUserId);
+      }
     };
 
     fetchUserData();
@@ -374,6 +448,7 @@ export default function App() {
           ),
         }} />
       </Tab.Navigator>
+      <StatusBar barStyle="light-content" />
     </NavigationContainer>
   );
 }
