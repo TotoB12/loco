@@ -11,12 +11,58 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import ViewPager from '@react-native-community/viewpager';
+import * as Permissions from 'expo-permissions';
+import * as TaskManager from 'expo-task-manager';
 import { generateUsername } from './generateUsername';
 import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
 
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
+const LOCATION_TASK_NAME = 'background-location-task';
+
+async function requestPermissions() {
+  const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+  if (foregroundStatus !== 'granted') {
+    console.error('Foreground location permission has been denied');
+    return;
+  }
+
+  const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+  if (backgroundStatus !== 'granted') {
+    console.error('Background location permission has been denied');
+    return;
+  }
+}
+
+TaskManager.defineTask(LOCATION_TASK_NAME, ({ data: { locations }, error }) => {
+  if (error) {
+    console.error(error);
+    return;
+  }
+  const { latitude, longitude } = locations[0].coords;
+  updateLocationInFirebase(latitude, longitude);
+});
+
+async function updateLocationInFirebase(latitude, longitude) {
+  const userId = await AsyncStorage.getItem('userId');
+  if (!userId) return;
+
+  const userRef = ref(database, `users/${userId}`);
+  update(userRef, {
+    location: { latitude, longitude },
+    timestamp: Date.now(),
+  });
+}
+
+async function startLocationUpdates() {
+  await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+    accuracy: Location.Accuracy.BestForNavigation,
+    timeInterval: 5000,
+    distanceInterval: 0,
+  });
+}
+
 
 async function generateUuidAndSave() {
   const existingUuid = await AsyncStorage.getItem('userId');
@@ -45,7 +91,7 @@ const Header = () => {
   );
 };
 
-const UserAvatarMarker = ({ user, size }) => {
+const UserAvatarMarker = ({ user, size, color }) => {
   const getInitials = (name) => {
     if (!name) {
       return "";
@@ -61,14 +107,13 @@ const UserAvatarMarker = ({ user, size }) => {
   };
 
   return (
-    // <Marker.Animated coordinate={coordinate} title={user.name || 'Anonymous'}>
     <Avatar
       size={size || 30}
       rounded
       title={getTwoFirstLetters(user.name)}
-      containerStyle={{ backgroundColor: "#00ADB5" }}
+      containerStyle={{ backgroundColor: color || "#FFFFFF" }} // #00ADB5
+      titleStyle={{ color: "black" }} // #EEEEEE
     />
-    // </Marker.Animated>
   );
 };
 
@@ -104,6 +149,7 @@ function OnboardingScreen({ onFinish }) {
           const userId = await generateUuidAndSave();
           await AsyncStorage.setItem('userName', username);
           onFinish(username, userId);
+          startLocationUpdates();
         }} style={styles.button}>
           <Text style={styles.buttonText}>Finish Setup</Text>
         </TouchableOpacity>
@@ -234,11 +280,12 @@ function MapScreen() {
             icon={{
               name: 'globe',
               type: 'font-awesome',
-              size: 20,
+              size: 17,
               // color: '#00ADB5',
             }}
+            titleStyle={{ color: 'black' }}
             onPress={handleAllPress}
-            type="outline"
+            type="solid"
             containerStyle={styles.chipContainerStyle}
             buttonStyle={styles.chipStyle}
           />
@@ -247,11 +294,12 @@ function MapScreen() {
             icon={{
               name: 'users',
               type: 'font-awesome',
-              size: 20,
+              size: 17,
               // color: '#00ADB5',
             }}
+            titleStyle={{ color: 'black' }}
             onPress={handleFriendsPress}
-            type="outline"
+            type="solid"
             containerStyle={styles.chipContainerStyle}
             buttonStyle={styles.chipStyle}
           />
@@ -293,6 +341,7 @@ function MapScreen() {
           >
             <UserAvatarMarker
               user={{ name: userName }}
+              color="#00ADB5"
             />
           </Marker.Animated>
         )}

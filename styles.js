@@ -303,10 +303,12 @@ export const styles = StyleSheet.create({
   },
   chipContainerStyle: {
     marginHorizontal: 5,
-    backgroundColor: '#FFFFFF',
+    // backgroundColor: '#FFFFFF',
   },
   chipStyle: {
+    height: 36,
     backgroundColor: '#FFFFFF',
+    // color: '#222831',
   },
   page: {
     flex: 1,

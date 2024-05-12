@@ -19,6 +19,9 @@
       "bundleIdentifier": "com.antoninbeliard.loco",
       "config": {
         "googleMapsApiKey": "AIzaSyB7NMaMY_YmXpY_pA6Xz0jfyB5J-xAodcI"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": ["location"]
       }
     },
     "android": {
@@ -31,7 +34,8 @@
         "googleMaps": {
           "apiKey": "AIzaSyA7_2YtDt6Yj0H-ZlqYNZGM9qDYHY0O_c0"
         }
-      }
+      },
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_BACKGROUND_LOCATION"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
