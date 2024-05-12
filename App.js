@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Image, Platform } from 'react-native';
-import { Avatar, Button, Icon, SearchBar, Chip } from '@rneui/themed';
+import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, ScrollView, KeyboardAvoidingView, Image, Platform } from 'react-native';
+import { Avatar, Button, Icon, SearchBar, Chip, ListItem } from '@rneui/themed';
 import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import 'react-native-get-random-values';
@@ -71,6 +71,24 @@ const UserAvatarMarker = ({ user, size, color }) => {
   );
 };
 
+function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+  var R = 6371; // Radius of the earth in km
+  var dLat = deg2rad(lat2 - lat1);  // deg2rad below
+  var dLon = deg2rad(lon2 - lon1);
+  var a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    ;
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  var d = R * c; // Distance in km
+  return d;
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI / 180)
+}
+
 function OnboardingScreen({ onFinish }) {
   const pagerRef = useRef(null);
   const [username, setUsername] = useState(generateUsername("-", 3));
@@ -120,8 +138,25 @@ function MapScreen() {
   const [userName, setUserName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const searchBarRef = useRef(null);
+  const [searchActive, setSearchActive] = useState(false);
   const userMarkers = useRef(new Map()).current;
   const [isTracking, setIsTracking] = useState(false);
+
+  const sortedUsers = React.useMemo(() => {
+    return Object.entries(users)
+      .map(([id, user]) => ({
+        id,
+        ...user,
+        distance: location ? getDistanceFromLatLonInKm(
+          location.latitude,
+          location.longitude,
+          user.location.latitude,
+          user.location.longitude
+        ) : Infinity
+      }))
+      .filter(user => user.id !== userId)
+      .sort((a, b) => a.distance - b.distance);
+  }, [users, location, userId]);
 
   useEffect(() => {
     const initLocationTracking = async () => {
@@ -187,7 +222,7 @@ function MapScreen() {
           }
         }).then((watcher) => {
           return () => watcher.remove();
-        });        
+        });
       }
     };
 
@@ -235,6 +270,7 @@ function MapScreen() {
   }
 
   return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <View style={{ flex: 1 }}>
       <Header />
       <View style={styles.filterContainer}>
@@ -242,6 +278,8 @@ function MapScreen() {
           placeholder="Search for friends..."
           onChangeText={handleSearch}
           value={searchQuery}
+          onFocus={() => setSearchActive(true)}
+          onBlur={() => setSearchActive(false)}
           ref={searchBarRef}
           containerStyle={styles.searchContainerStyle}
           inputContainerStyle={styles.searchInputContainerStyle}
@@ -279,6 +317,21 @@ function MapScreen() {
           />
         </View>
       </View>
+      {(searchActive || searchQuery) && (
+        <View style={styles.searchResultsContainer}>
+          <ScrollView>
+            {sortedUsers.map((user) => (
+              <ListItem key={user.id} bottomDivider>
+                <UserAvatarMarker user={user} size={30} color="#00ADB5" />
+                <ListItem.Content>
+                  <ListItem.Title>{user.name}</ListItem.Title>
+                  <ListItem.Subtitle>{user.distance.toFixed(2)} km away</ListItem.Subtitle>
+                </ListItem.Content>
+              </ListItem>
+            ))}
+          </ScrollView>
+        </View>
+      )}
       <MapView
         ref={mapRef}
         // provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
@@ -323,19 +376,20 @@ function MapScreen() {
         ))}
       </MapView>
       <Button
-  buttonStyle={[styles.recenterButton, isTracking ? styles.trackingButton : null]}
-  containerStyle={styles.recenterButtonContainer}
-  icon={
-    <Icon
-      name="location-arrow"
-      type="font-awesome"
-      size={25}
-      color={isTracking ? "#FFF" : "#00ADB5"}
-    />
-  }
-  onPress={() => setIsTracking(!isTracking)}
-/>
+        buttonStyle={[styles.recenterButton, isTracking ? styles.trackingButton : null]}
+        containerStyle={styles.recenterButtonContainer}
+        icon={
+          <Icon
+            name="location-arrow"
+            type="font-awesome"
+            size={25}
+            color={isTracking ? "#FFF" : "#00ADB5"}
+          />
+        }
+        onPress={() => setIsTracking(!isTracking)}
+      />
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

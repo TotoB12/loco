@@ -294,6 +294,15 @@ export const styles = StyleSheet.create({
   searchInputStyle: {
     fontSize: 16,
   },
+  searchResultsContainer: {
+    position: 'absolute',
+    top: 110,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+    backgroundColor: 'white'
+  },  
   chipsContainer: {
     flexDirection: 'row',
     // justifyContent: 'center',
