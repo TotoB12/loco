@@ -261,6 +261,19 @@ function MapScreen() {
     }
   };
 
+  const zoomToUserLocation = (location) => {
+    setSearchQuery('');
+    setSearchActive(false);
+    if (mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        latitudeDelta: 0.005,  // Smaller delta means a closer zoom
+        longitudeDelta: 0.005,
+      }, 1000);  // 1000 ms for the animation
+    }
+  };
+
   if (!initialRegionSet) {
     return (
       <View style={styles.loaderContainer}>
@@ -271,124 +284,128 @@ function MapScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-    <View style={{ flex: 1 }}>
-      <Header />
-      <View style={styles.filterContainer}>
-        <SearchBar
-          placeholder="Search for friends..."
-          onChangeText={handleSearch}
-          value={searchQuery}
-          onFocus={() => setSearchActive(true)}
-          onBlur={() => setSearchActive(false)}
-          ref={searchBarRef}
-          containerStyle={styles.searchContainerStyle}
-          inputContainerStyle={styles.searchInputContainerStyle}
-          inputStyle={styles.searchInputStyle}
-          round
-        />
-        <View style={styles.chipsContainer}>
-          <Chip
-            title="All"
-            icon={{
-              name: 'globe',
-              type: 'font-awesome',
-              size: 17,
-              // color: '#00ADB5',
-            }}
-            titleStyle={{ color: 'black' }}
-            onPress={handleAllPress}
-            type="solid"
-            containerStyle={styles.chipContainerStyle}
-            buttonStyle={styles.chipStyle}
+      <View style={{ flex: 1 }}>
+        <Header />
+        <View style={styles.filterContainer}>
+          <SearchBar
+            placeholder="Search for friends..."
+            onChangeText={handleSearch}
+            value={searchQuery}
+            onFocus={() => setSearchActive(true)}
+            onBlur={() => setSearchActive(false)}
+            ref={searchBarRef}
+            containerStyle={styles.searchContainerStyle}
+            inputContainerStyle={styles.searchInputContainerStyle}
+            inputStyle={styles.searchInputStyle}
+            round
           />
-          <Chip
-            title="Friends"
-            icon={{
-              name: 'users',
-              type: 'font-awesome',
-              size: 17,
-              // color: '#00ADB5',
-            }}
-            titleStyle={{ color: 'black' }}
-            onPress={handleFriendsPress}
-            type="solid"
-            containerStyle={styles.chipContainerStyle}
-            buttonStyle={styles.chipStyle}
-          />
-        </View>
-      </View>
-      {(searchActive || searchQuery) && (
-        <View style={styles.searchResultsContainer}>
-          <ScrollView>
-            {sortedUsers.map((user) => (
-              <ListItem key={user.id} bottomDivider>
-                <UserAvatarMarker user={user} size={30} color="#00ADB5" />
-                <ListItem.Content>
-                  <ListItem.Title>{user.name}</ListItem.Title>
-                  <ListItem.Subtitle>{user.distance.toFixed(2)} km away</ListItem.Subtitle>
-                </ListItem.Content>
-              </ListItem>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-      <MapView
-        ref={mapRef}
-        // provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        initialRegion={{
-          latitude: location?.latitude || 0,
-          longitude: location?.longitude || 0,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        }}
-        onRegionChange={() => {
-          if (isTracking) {
-            setIsTracking(false);
-          }
-        }}
-        customMapStyle={customMapStyle}
-      >
-        {location && (
-          <Marker.Animated
-            key={userId}
-            coordinate={new AnimatedRegion({
-              latitude: location.latitude,
-              longitude: location.longitude,
-              latitudeDelta: 0.0922,
-              longitudeDelta: 0.0421,
-            })}
-            title="You"
-          >
-            <UserAvatarMarker
-              user={{ name: userName }}
-              color="#00ADB5"
+          <View style={styles.chipsContainer}>
+            <Chip
+              title="All"
+              icon={{
+                name: 'globe',
+                type: 'font-awesome',
+                size: 17,
+                // color: '#00ADB5',
+              }}
+              titleStyle={{ color: 'black' }}
+              onPress={handleAllPress}
+              type="solid"
+              containerStyle={styles.chipContainerStyle}
+              buttonStyle={styles.chipStyle}
             />
-          </Marker.Animated>
+            <Chip
+              title="Friends"
+              icon={{
+                name: 'users',
+                type: 'font-awesome',
+                size: 17,
+                // color: '#00ADB5',
+              }}
+              titleStyle={{ color: 'black' }}
+              onPress={handleFriendsPress}
+              type="solid"
+              containerStyle={styles.chipContainerStyle}
+              buttonStyle={styles.chipStyle}
+            />
+          </View>
+        </View>
+        {(searchActive || searchQuery) && (
+          <View style={styles.searchResultsContainer}>
+            <ScrollView>
+              {sortedUsers.map((user) => (
+                <ListItem
+                  key={user.id}
+                  bottomDivider
+                  onPress={() => zoomToUserLocation(user.location)}
+                >
+                  <UserAvatarMarker user={user} size={30} color="#00ADB5" />
+                  <ListItem.Content>
+                    <ListItem.Title>{user.name}</ListItem.Title>
+                    <ListItem.Subtitle>{user.distance.toFixed(2)} km away</ListItem.Subtitle>
+                  </ListItem.Content>
+                </ListItem>
+              ))}
+            </ScrollView>
+          </View>
         )}
-        {Object.entries(users).filter(([id]) => id !== userId).map(([id, user]) => (
-          <Marker.Animated key={id} coordinate={userMarkers.get(id)} title={user.name || 'Anonymous'}>
-            <UserAvatarMarker
-              user={user}
+        <MapView
+          ref={mapRef}
+          // provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          provider={PROVIDER_GOOGLE}
+          style={styles.map}
+          initialRegion={{
+            latitude: location?.latitude || 0,
+            longitude: location?.longitude || 0,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+          onRegionChange={() => {
+            if (isTracking) {
+              setIsTracking(false);
+            }
+          }}
+          customMapStyle={customMapStyle}
+        >
+          {location && (
+            <Marker.Animated
+              key={userId}
+              coordinate={new AnimatedRegion({
+                latitude: location.latitude,
+                longitude: location.longitude,
+                latitudeDelta: 0.0922,
+                longitudeDelta: 0.0421,
+              })}
+              title="You"
+            >
+              <UserAvatarMarker
+                user={{ name: userName }}
+                color="#00ADB5"
+              />
+            </Marker.Animated>
+          )}
+          {Object.entries(users).filter(([id]) => id !== userId).map(([id, user]) => (
+            <Marker.Animated key={id} coordinate={userMarkers.get(id)} title={user.name || 'Anonymous'}>
+              <UserAvatarMarker
+                user={user}
+              />
+            </Marker.Animated>
+          ))}
+        </MapView>
+        <Button
+          buttonStyle={[styles.recenterButton, isTracking ? styles.trackingButton : null]}
+          containerStyle={styles.recenterButtonContainer}
+          icon={
+            <Icon
+              name="location-arrow"
+              type="font-awesome"
+              size={25}
+              color={isTracking ? "#FFF" : "#00ADB5"}
             />
-          </Marker.Animated>
-        ))}
-      </MapView>
-      <Button
-        buttonStyle={[styles.recenterButton, isTracking ? styles.trackingButton : null]}
-        containerStyle={styles.recenterButtonContainer}
-        icon={
-          <Icon
-            name="location-arrow"
-            type="font-awesome"
-            size={25}
-            color={isTracking ? "#FFF" : "#00ADB5"}
-          />
-        }
-        onPress={() => setIsTracking(!isTracking)}
-      />
-    </View>
+          }
+          onPress={() => setIsTracking(!isTracking)}
+        />
+      </View>
     </KeyboardAvoidingView>
   );
 }
