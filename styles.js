@@ -310,6 +310,23 @@ export const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     // color: '#222831',
   },
+  recenterButton: {
+    backgroundColor: '#FFFFFF',
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+  },
+trackingButton: {
+  backgroundColor: '#00ADB5', // #FF6347
+  width: 50,
+  height: 50,
+  borderRadius: 12,
+},
+  recenterButtonContainer: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+  },
   page: {
     flex: 1,
     justifyContent: 'center',

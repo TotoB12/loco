@@ -11,58 +11,12 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import ViewPager from '@react-native-community/viewpager';
-import * as Permissions from 'expo-permissions';
-import * as TaskManager from 'expo-task-manager';
 import { generateUsername } from './generateUsername';
 import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
 
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
-const LOCATION_TASK_NAME = 'background-location-task';
-
-async function requestPermissions() {
-  const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-  if (foregroundStatus !== 'granted') {
-    console.error('Foreground location permission has been denied');
-    return;
-  }
-
-  const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-  if (backgroundStatus !== 'granted') {
-    console.error('Background location permission has been denied');
-    return;
-  }
-}
-
-TaskManager.defineTask(LOCATION_TASK_NAME, ({ data: { locations }, error }) => {
-  if (error) {
-    console.error(error);
-    return;
-  }
-  const { latitude, longitude } = locations[0].coords;
-  updateLocationInFirebase(latitude, longitude);
-});
-
-async function updateLocationInFirebase(latitude, longitude) {
-  const userId = await AsyncStorage.getItem('userId');
-  if (!userId) return;
-
-  const userRef = ref(database, `users/${userId}`);
-  update(userRef, {
-    location: { latitude, longitude },
-    timestamp: Date.now(),
-  });
-}
-
-async function startLocationUpdates() {
-  await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-    accuracy: Location.Accuracy.BestForNavigation,
-    timeInterval: 5000,
-    distanceInterval: 0,
-  });
-}
-
 
 async function generateUuidAndSave() {
   const existingUuid = await AsyncStorage.getItem('userId');
@@ -149,7 +103,6 @@ function OnboardingScreen({ onFinish }) {
           const userId = await generateUuidAndSave();
           await AsyncStorage.setItem('userName', username);
           onFinish(username, userId);
-          startLocationUpdates();
         }} style={styles.button}>
           <Text style={styles.buttonText}>Finish Setup</Text>
         </TouchableOpacity>
@@ -159,6 +112,7 @@ function OnboardingScreen({ onFinish }) {
 }
 
 function MapScreen() {
+  const mapRef = useRef(null);
   const [location, setLocation] = useState(null);
   const [initialRegionSet, setInitialRegionSet] = useState(false);
   const [users, setUsers] = useState({});
@@ -167,6 +121,7 @@ function MapScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const searchBarRef = useRef(null);
   const userMarkers = useRef(new Map()).current;
+  const [isTracking, setIsTracking] = useState(false);
 
   useEffect(() => {
     const initLocationTracking = async () => {
@@ -222,9 +177,17 @@ function MapScreen() {
         }, (newLocation) => {
           setLocation(newLocation.coords);
           update(userRef, { location: newLocation.coords, timestamp: Date.now() });
+          if (isTracking && mapRef.current) {
+            mapRef.current.animateToRegion({
+              latitude: newLocation.coords.latitude,
+              longitude: newLocation.coords.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            }, 500);
+          }
         }).then((watcher) => {
           return () => watcher.remove();
-        });
+        });        
       }
     };
 
@@ -250,6 +213,17 @@ function MapScreen() {
   const handleFriendsPress = () => {
     // Handle logic for Friends chip
     console.log('Friends was pressed!');
+  };
+
+  const recenterMap = () => {
+    if (location && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      }, 500);
+    }
   };
 
   if (!initialRegionSet) {
@@ -306,6 +280,7 @@ function MapScreen() {
         </View>
       </View>
       <MapView
+        ref={mapRef}
         // provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         provider={PROVIDER_GOOGLE}
         style={styles.map}
@@ -315,19 +290,13 @@ function MapScreen() {
           latitudeDelta: 0.0922,
           longitudeDelta: 0.0421,
         }}
+        onRegionChange={() => {
+          if (isTracking) {
+            setIsTracking(false);
+          }
+        }}
         customMapStyle={customMapStyle}
       >
-        {/* <TextInput
-          placeholder="Search for friends..."
-          style={styles.searchBar}
-        /> */}
-        {/* <SearchBar
-          placeholder="Search for friends..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          // containerStyle={{ width: '100%', backgroundColor: 'transparent', borderTopWidth: 0, borderBottomWidth: 0 }}
-          inputContainerStyle={{ backgroundColor: 'white' }}
-        /> */}
         {location && (
           <Marker.Animated
             key={userId}
@@ -353,6 +322,19 @@ function MapScreen() {
           </Marker.Animated>
         ))}
       </MapView>
+      <Button
+  buttonStyle={[styles.recenterButton, isTracking ? styles.trackingButton : null]}
+  containerStyle={styles.recenterButtonContainer}
+  icon={
+    <Icon
+      name="location-arrow"
+      type="font-awesome"
+      size={25}
+      color={isTracking ? "#FFF" : "#00ADB5"}
+    />
+  }
+  onPress={() => setIsTracking(!isTracking)}
+/>
     </View>
   );
 }
