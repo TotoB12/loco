@@ -71,9 +71,10 @@ const UserAvatarMarker = ({ user, size, color }) => {
   );
 };
 
+// Haversine formula
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-  var R = 6371; // Radius of the earth in km
-  var dLat = deg2rad(lat2 - lat1);  // deg2rad below
+  var R = 6371;
+  var dLat = deg2rad(lat2 - lat1);
   var dLon = deg2rad(lon2 - lon1);
   var a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -81,7 +82,7 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
     Math.sin(dLon / 2) * Math.sin(dLon / 2)
     ;
   var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  var d = R * c; // Distance in km
+  var d = R * c;
   return d;
 }
 
@@ -255,7 +256,7 @@ function MapScreen() {
       console.log("User ID is not set");
       return;
     }
-  
+
     const requestsRef = ref(database, `users/${receiverId}/requests/${userId}`);
     onValue(requestsRef, async (snapshot) => {
       if (snapshot.exists()) {
@@ -270,8 +271,8 @@ function MapScreen() {
     }, {
       onlyOnce: true
     });
-  };  
-  
+  };
+
   const recenterMap = () => {
     if (location && mapRef.current) {
       mapRef.current.animateToRegion({
@@ -368,7 +369,7 @@ function MapScreen() {
                     <ListItem.Subtitle>{user.distance.toFixed(2)} km away</ListItem.Subtitle>
                   </ListItem.Content>
                   <Button
-                  type="clear"
+                    type="clear"
                     icon={{
                       name: user.requests && user.requests[userId] ? 'check' : 'user-plus',
                       type: 'font-awesome',
@@ -453,9 +454,35 @@ function MapScreen() {
 
 function FriendsScreen() {
   return (
-    <View style={styles.centered}>
+    <View style={styles.friendsContainer}>
       <Header />
-      <Text>people</Text>
+      <View style={styles.friendsHeader}>
+        <Text style={styles.friendsTitle}>Friends</Text>
+        <Button
+        type="outline"
+          icon={{
+            name: 'plus',
+            type: 'font-awesome',
+            size: 15,
+            color: '#00ADB5'
+          }}
+          title="Add friend"
+          buttonStyle={styles.addFriendButton}
+          titleStyle={{ color: 'white' }}
+        />
+      </View>
+      {/* Placeholder for friend requests */}
+      <View style={styles.friendRequestsContainer}>
+        <Text style={styles.sectionTitle}>Friend Requests</Text>
+        {/* Mockup for friend request */}
+        <Text style={{ color: 'white' }}>Antonin Beliard asked to be your friend!</Text>
+      </View>
+      {/* Placeholder for friend list */}
+      <View style={styles.friendsListContainer}>
+        <Text style={styles.sectionTitle}>Your Friends</Text>
+        {/* Mockup for friend list */}
+        <Text style={{ color: 'white' }}>Ravaka Ramarozatovo</Text>
+      </View>
     </View>
   );
 }

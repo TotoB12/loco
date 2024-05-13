@@ -378,4 +378,57 @@ trackingButton: {
     backgroundColor: '#222831',
     // paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
+  friendsContainer: {
+    flex: 1,
+    backgroundColor: '#222831',
+    padding: 10,
+  },
+  friendsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    // backgroundColor: '#393E46',
+  },
+  friendsTitle: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: '#EEEEEE',
+  },
+  addFriendButton: {
+    // backgroundColor: '#00ADB5',
+    borderColor: 'gray',
+    borderRadius: 5,
+  },
+  friendRequestsContainer: {
+    padding: 10,
+  },
+  friendsListContainer: {
+    padding: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    color: '#EEEEEE',
+    paddingVertical: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
 });
