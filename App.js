@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, ScrollView, KeyboardAvoidingView, Image, Platform } from 'react-native';
-import { Avatar, Button, Icon, SearchBar, Chip, ListItem } from '@rneui/themed';
+import { Avatar, Button, Icon, SearchBar, Chip, ListItem, Input } from '@rneui/themed';
 import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import 'react-native-get-random-values';
@@ -143,6 +143,7 @@ function MapScreen() {
   const [isTracking, setIsTracking] = useState(false);
 
   const sortedUsers = React.useMemo(() => {
+    const query = searchQuery.toLowerCase();
     return Object.entries(users)
       .map(([id, user]) => ({
         id,
@@ -154,9 +155,9 @@ function MapScreen() {
           user.location.longitude
         ) : Infinity
       }))
-      .filter(user => user.id !== userId)
+      .filter(user => user.id !== userId && user.name.toLowerCase().includes(query))
       .sort((a, b) => a.distance - b.distance);
-  }, [users, location, userId]);
+  }, [users, location, userId, searchQuery]);
 
   useEffect(() => {
     const initLocationTracking = async () => {
@@ -204,6 +205,7 @@ function MapScreen() {
             }
           });
           setUsers(data);
+          // console.log('Users updated:', users);
         });
 
         Location.watchPositionAsync({
@@ -240,16 +242,36 @@ function MapScreen() {
     // do stuff
   };
 
-  const handleAllPress = () => {
-    // Handle logic for All chip
+  const handleMapAllPress = () => {
     console.log('All was pressed!');
   };
 
-  const handleFriendsPress = () => {
-    // Handle logic for Friends chip
+  const handleMapFriendsPress = () => {
     console.log('Friends was pressed!');
   };
 
+  const toggleFriendRequest = async (receiverId) => {
+    if (!userId) {
+      console.log("User ID is not set");
+      return;
+    }
+  
+    const requestsRef = ref(database, `users/${receiverId}/requests/${userId}`);
+    onValue(requestsRef, async (snapshot) => {
+      if (snapshot.exists()) {
+        // If request already exists, remove it
+        await set(requestsRef, null);
+        console.log("Friend request removed.");
+      } else {
+        // If no request exists, add it
+        await set(requestsRef, true);
+        console.log("Friend request sent!");
+      }
+    }, {
+      onlyOnce: true
+    });
+  };  
+  
   const recenterMap = () => {
     if (location && mapRef.current) {
       mapRef.current.animateToRegion({
@@ -268,9 +290,9 @@ function MapScreen() {
       mapRef.current.animateToRegion({
         latitude: location.latitude,
         longitude: location.longitude,
-        latitudeDelta: 0.005,  // Smaller delta means a closer zoom
+        latitudeDelta: 0.005,
         longitudeDelta: 0.005,
-      }, 1000);  // 1000 ms for the animation
+      }, 1000);
     }
   };
 
@@ -288,11 +310,12 @@ function MapScreen() {
         <Header />
         <View style={styles.filterContainer}>
           <SearchBar
+            platform='default'
             placeholder="Search for friends..."
             onChangeText={handleSearch}
             value={searchQuery}
             onFocus={() => setSearchActive(true)}
-            onBlur={() => setSearchActive(false)}
+            // onBlur={() => setSearchActive(false)}
             ref={searchBarRef}
             containerStyle={styles.searchContainerStyle}
             inputContainerStyle={styles.searchInputContainerStyle}
@@ -309,7 +332,7 @@ function MapScreen() {
                 // color: '#00ADB5',
               }}
               titleStyle={{ color: 'black' }}
-              onPress={handleAllPress}
+              onPress={handleMapAllPress}
               type="solid"
               containerStyle={styles.chipContainerStyle}
               buttonStyle={styles.chipStyle}
@@ -323,7 +346,7 @@ function MapScreen() {
                 // color: '#00ADB5',
               }}
               titleStyle={{ color: 'black' }}
-              onPress={handleFriendsPress}
+              onPress={handleMapFriendsPress}
               type="solid"
               containerStyle={styles.chipContainerStyle}
               buttonStyle={styles.chipStyle}
@@ -344,6 +367,16 @@ function MapScreen() {
                     <ListItem.Title>{user.name}</ListItem.Title>
                     <ListItem.Subtitle>{user.distance.toFixed(2)} km away</ListItem.Subtitle>
                   </ListItem.Content>
+                  <Button
+                  type="clear"
+                    icon={{
+                      name: user.requests && user.requests[userId] ? 'check' : 'user-plus',
+                      type: 'font-awesome',
+                      size: 25,
+                      color: user.requests && user.requests[userId] ? 'green' : '#222831',
+                    }}
+                    onPress={() => toggleFriendRequest(user.id)}
+                  />
                 </ListItem>
               ))}
             </ScrollView>
@@ -515,10 +548,6 @@ export default function App() {
   if (showOnboarding) {
     return <OnboardingScreen onFinish={handleFinishOnboarding} />;
   }
-
-  const getTwoFirstLetters = (name) => {
-    return name.substring(0, 2).toUpperCase();
-  };
 
   return (
     <NavigationContainer>

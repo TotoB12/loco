@@ -296,11 +296,11 @@ export const styles = StyleSheet.create({
   },
   searchResultsContainer: {
     position: 'absolute',
-    top: 110,
+    top: 120,
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 9999,
+    zIndex: 99999,
     backgroundColor: 'white'
   },  
   chipsContainer: {
