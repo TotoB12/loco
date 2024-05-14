@@ -15,6 +15,8 @@ import { generateUsername } from './generateUsername';
 import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
 
+// https://reactnavigation.org/docs/modal/#creating-a-stack-with-modal-screens
+
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
@@ -130,11 +132,13 @@ function OnboardingScreen({ onFinish }) {
   );
 }
 
+let users;
+
 function MapScreen() {
   const mapRef = useRef(null);
   const [location, setLocation] = useState(null);
   const [initialRegionSet, setInitialRegionSet] = useState(false);
-  const [users, setUsers] = useState({});
+  [users, setUsers] = useState({});
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -453,6 +457,62 @@ function MapScreen() {
 // }
 
 function FriendsScreen() {
+  const [userId, setUserId] = useState('');
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const storedUserId = await AsyncStorage.getItem('userId');
+      if (storedUserId) {
+        setUserId(storedUserId);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  function FriendRequestCard({ username, onAccept, onReject }) {
+    return (
+      <View style={styles.friendRequestCard}>
+        <View style={styles.friendRequestHeader}>
+          <Icon
+            name="bell-o"
+            type="font-awesome"
+            color="white"
+            size={30}
+            containerStyle={styles.friendRequestIcon}
+          />
+          <Text style={styles.friendRequestText}>{username} asked to be your friend!</Text>
+        </View>
+        <View style={styles.friendRequestActions}>
+          <Button
+            type="outline"
+            title="Hel yeah!"
+            icon={{
+              name: 'check',
+              type: 'font-awesome',
+              color: 'green'
+            }}
+            titleStyle={{ color: 'white' }}
+            buttonStyle={styles.acceptButton}
+            onPress={onAccept}
+          />
+          <Button
+            type="outline"
+            title="Eww no..."
+            icon={{
+              name: 'times',
+              type: 'font-awesome',
+              color: 'red'
+            }}
+            titleStyle={{ color: 'white' }}
+            buttonStyle={styles.rejectButton}
+            onPress={onReject}
+          />
+        </View>
+      </View>
+    );
+  }
+  
   return (
     <View style={styles.friendsContainer}>
       <Header />
@@ -469,15 +529,23 @@ function FriendsScreen() {
           title="Add friend"
           buttonStyle={styles.addFriendButton}
           titleStyle={{ color: 'white' }}
+          onPress={() => console.log("Add friend button pressed:", userId)}
         />
       </View>
-      {/* Placeholder for friend requests */}
-      <View style={styles.friendRequestsContainer}>
-        <Text style={styles.sectionTitle}>Friend Requests</Text>
-        {/* Mockup for friend request */}
-        <Text style={{ color: 'white' }}>Antonin Beliard asked to be your friend!</Text>
-      </View>
-      {/* Placeholder for friend list */}
+      <ScrollView style={styles.friendRequestsContainer}>        
+        {Object.entries(users).map(([id, user]) => (user.requests && user.requests[userId] && (
+          <FriendRequestCard
+            key={id}
+            username={user.name}
+            onAccept={() => {
+              console.log("Accepted friend request from", user.name);
+            }}
+            onReject={() => {
+              console.log("Rejected friend request from", user.name);
+            }}
+          />
+        )))}
+      </ScrollView>
       <View style={styles.friendsListContainer}>
         <Text style={styles.sectionTitle}>Your Friends</Text>
         {/* Mockup for friend list */}

@@ -411,24 +411,39 @@ trackingButton: {
     color: '#EEEEEE',
     paddingVertical: 5,
   },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '80%',
-    backgroundColor: 'white',
+  friendRequestCard: {
+    backgroundColor: '#2b3543',
+    // marginBottom: 10,
     padding: 20,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    borderRadius: 5,
+  },
+  friendRequestHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  friendRequestIcon: {
+    marginRight: 10,
+  },
+  friendRequestText: {
+    flex: 1,
+    color: 'white',
+    fontSize: 18,
+  },
+  friendRequestActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  acceptButton: {
+    // backgroundColor: 'green',
+    borderColor: 'green',
+    borderWidth: 2,
+    borderRadius: 5,
+  },
+  rejectButton: {
+    // backgroundColor: 'red',
+    borderColor: 'red',
+    borderWidth: 2,
+    borderRadius: 5,
   },
 });
