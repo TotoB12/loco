@@ -1,3 +1,6 @@
+eas build --profile development --platform android
+eas build:run -p android
+
 eas build:configure
 
 eas build --platform android

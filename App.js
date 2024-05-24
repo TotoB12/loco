@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, createContext, useContext } from 'react';
 import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, ScrollView, KeyboardAvoidingView, Image, Platform } from 'react-native';
-import { Avatar, Button, Icon, SearchBar, Chip, ListItem, Input } from '@rneui/themed';
+import { Avatar, Button, Icon, SearchBar, Chip, ListItem } from '@rneui/themed';
 import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import 'react-native-get-random-values';
@@ -15,12 +15,73 @@ import { generateUsername } from './generateUsername';
 import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
 
-// https://reactnavigation.org/docs/modal/#creating-a-stack-with-modal-screens
-
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
-async function generateUuidAndSave() {
+// Create context for users
+const UsersContext = createContext();
+
+const useUsers = () => {
+  const context = useContext(UsersContext);
+  if (!context) {
+    throw new Error('useUsers must be used within a UsersProvider');
+  }
+  return context;
+};
+
+const UsersProvider = ({ children }) => {
+  const [users, setUsers] = useState({});
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [currentUserName, setCurrentUserName] = useState('');
+
+  useEffect(() => {
+    const fetchUsers = () => {
+      const usersRef = ref(database, 'users');
+      onValue(usersRef, (snapshot) => {
+        setUsers(snapshot.val() || {});
+      });
+    };
+
+    const fetchCurrentUser = async () => {
+      const userId = await AsyncStorage.getItem('userId');
+      const userName = await AsyncStorage.getItem('userName');
+      if (userId && userName) {
+        setCurrentUserId(userId);
+        setCurrentUserName(userName);
+      }
+    };
+
+    fetchUsers();
+    fetchCurrentUser();
+  }, []);
+
+  const updateUser = (userId, data) => {
+    const userRef = ref(database, `users/${userId}`);
+    update(userRef, data);
+  };
+
+  const value = {
+    users,
+    currentUserId,
+    currentUserName,
+    setCurrentUserId,
+    setCurrentUserName,
+    updateUser,
+  };
+
+  return <UsersContext.Provider value={value}>{children}</UsersContext.Provider>;
+};
+
+const generateUuid = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    var r = (Math.random() * 16) | 0,
+      v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+const generateUuidAndSave = async () => {
   const existingUuid = await AsyncStorage.getItem('userId');
   if (!existingUuid) {
     const uuid = generateUuid();
@@ -28,36 +89,20 @@ async function generateUuidAndSave() {
     return uuid;
   }
   return existingUuid;
-}
-
-function generateUuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    var r = (Math.random() * 16) | 0,
-      v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
+};
 
 const Tab = createBottomTabNavigator();
 
 const Header = () => {
   return (
-    <SafeAreaView style={styles.headerContainer}>
-    </SafeAreaView>
+    <SafeAreaView style={styles.headerContainer}></SafeAreaView>
   );
 };
 
 const UserAvatarMarker = ({ user, size, color }) => {
-  const getInitials = (name) => {
-    if (!name) {
-      return "";
-    }
-    return name.split(' ').map((n) => n[0]).join('').toUpperCase();
-  };
-
   const getTwoFirstLetters = (name) => {
     if (!name) {
-      return "";
+      return '';
     }
     return name.substring(0, 2).toUpperCase();
   };
@@ -67,34 +112,32 @@ const UserAvatarMarker = ({ user, size, color }) => {
       size={size || 30}
       rounded
       title={getTwoFirstLetters(user.name)}
-      containerStyle={{ backgroundColor: color || "#FFFFFF" }} // #00ADB5
-      titleStyle={{ color: "black" }} // #EEEEEE
+      containerStyle={{ backgroundColor: color || '#FFFFFF' }}
+      titleStyle={{ color: 'black' }}
     />
   );
 };
 
 // Haversine formula
-function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-  var R = 6371;
-  var dLat = deg2rad(lat2 - lat1);
-  var dLon = deg2rad(lon2 - lon1);
-  var a =
+const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
-    ;
-  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  var d = R * c;
-  return d;
-}
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
-function deg2rad(deg) {
-  return deg * (Math.PI / 180)
-}
+const deg2rad = (deg) => {
+  return deg * (Math.PI / 180);
+};
 
-function OnboardingScreen({ onFinish }) {
+const OnboardingScreen = ({ onFinish }) => {
   const pagerRef = useRef(null);
-  const [username, setUsername] = useState(generateUsername("-", 3));
+  const [username, setUsername] = useState(generateUsername('-', 3));
 
   return (
     <ViewPager style={{ flex: 1 }} ref={pagerRef}>
@@ -130,22 +173,19 @@ function OnboardingScreen({ onFinish }) {
       </View>
     </ViewPager>
   );
-}
+};
 
-let users;
-
-function MapScreen() {
+const MapScreen = () => {
   const mapRef = useRef(null);
   const [location, setLocation] = useState(null);
   const [initialRegionSet, setInitialRegionSet] = useState(false);
-  [users, setUsers] = useState({});
-  const [userId, setUserId] = useState('');
-  const [userName, setUserName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const searchBarRef = useRef(null);
   const [searchActive, setSearchActive] = useState(false);
   const userMarkers = useRef(new Map()).current;
   const [isTracking, setIsTracking] = useState(false);
+
+  const { users, currentUserId, currentUserName, updateUser } = useUsers();
 
   const sortedUsers = React.useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -158,11 +198,11 @@ function MapScreen() {
           location.longitude,
           user.location.latitude,
           user.location.longitude
-        ) : Infinity
+        ) : Infinity,
       }))
-      .filter(user => user.id !== userId && user.name.toLowerCase().includes(query))
+      .filter(user => user.id !== currentUserId && user.name.toLowerCase().includes(query))
       .sort((a, b) => a.distance - b.distance);
-  }, [users, location, userId, searchQuery]);
+  }, [users, location, currentUserId, searchQuery]);
 
   useEffect(() => {
     const initLocationTracking = async () => {
@@ -176,16 +216,10 @@ function MapScreen() {
       setLocation(currentLocation.coords);
       setInitialRegionSet(true);
 
-      const storedUserId = await AsyncStorage.getItem('userId');
-      const storedUserName = await AsyncStorage.getItem('userName');
-
-      if (storedUserId && storedUserName) {
-        setUserId(storedUserId);
-        setUserName(storedUserName);
-
-        const userRef = ref(database, `users/${storedUserId}`);
+      if (currentUserId && currentUserName) {
+        const userRef = ref(database, `users/${currentUserId}`);
         set(userRef, {
-          name: storedUserName,
+          name: currentUserName,
           location: currentLocation.coords,
           timestamp: Date.now(),
         });
@@ -194,7 +228,7 @@ function MapScreen() {
         onValue(usersRef, (snapshot) => {
           const data = snapshot.val() || {};
           Object.entries(data).forEach(([id, user]) => {
-            if (id !== userId) {
+            if (id !== currentUserId) {
               const newRegion = new AnimatedRegion({
                 latitude: user.location.latitude,
                 longitude: user.location.longitude,
@@ -209,8 +243,6 @@ function MapScreen() {
               }
             }
           });
-          setUsers(data);
-          // console.log('Users updated:', users);
         });
 
         Location.watchPositionAsync({
@@ -218,7 +250,7 @@ function MapScreen() {
           distanceInterval: 10,
         }, (newLocation) => {
           setLocation(newLocation.coords);
-          update(userRef, { location: newLocation.coords, timestamp: Date.now() });
+          updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
           if (isTracking && mapRef.current) {
             mapRef.current.animateToRegion({
               latitude: newLocation.coords.latitude,
@@ -234,17 +266,10 @@ function MapScreen() {
     };
 
     initLocationTracking();
-    return () => {
-      if (userId) {
-        const userRef = ref(database, `users/${userId}`);
-        set(userRef, null);
-      }
-    };
-  }, []);
+  }, [currentUserId, currentUserName]);
 
   const handleSearch = (query) => {
     setSearchQuery(query);
-    // do stuff
   };
 
   const handleMapAllPress = () => {
@@ -256,24 +281,22 @@ function MapScreen() {
   };
 
   const toggleFriendRequest = async (receiverId) => {
-    if (!userId) {
-      console.log("User ID is not set");
+    if (!currentUserId) {
+      console.log('User ID is not set');
       return;
     }
 
-    const requestsRef = ref(database, `users/${receiverId}/requests/${userId}`);
+    const requestsRef = ref(database, `users/${receiverId}/requests/${currentUserId}`);
     onValue(requestsRef, async (snapshot) => {
       if (snapshot.exists()) {
-        // If request already exists, remove it
         await set(requestsRef, null);
-        console.log("Friend request removed.");
+        console.log('Friend request removed.');
       } else {
-        // If no request exists, add it
         await set(requestsRef, true);
-        console.log("Friend request sent!");
+        console.log('Friend request sent!');
       }
     }, {
-      onlyOnce: true
+      onlyOnce: true,
     });
   };
 
@@ -310,17 +333,16 @@ function MapScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={{ flex: 1 }}>
         <Header />
         <View style={styles.filterContainer}>
           <SearchBar
-            platform='default'
+            platform="default"
             placeholder="Search for friends..."
             onChangeText={handleSearch}
             value={searchQuery}
             onFocus={() => setSearchActive(true)}
-            // onBlur={() => setSearchActive(false)}
             ref={searchBarRef}
             containerStyle={styles.searchContainerStyle}
             inputContainerStyle={styles.searchInputContainerStyle}
@@ -334,7 +356,6 @@ function MapScreen() {
                 name: 'globe',
                 type: 'font-awesome',
                 size: 17,
-                // color: '#00ADB5',
               }}
               titleStyle={{ color: 'black' }}
               onPress={handleMapAllPress}
@@ -348,7 +369,6 @@ function MapScreen() {
                 name: 'users',
                 type: 'font-awesome',
                 size: 17,
-                // color: '#00ADB5',
               }}
               titleStyle={{ color: 'black' }}
               onPress={handleMapFriendsPress}
@@ -375,10 +395,10 @@ function MapScreen() {
                   <Button
                     type="clear"
                     icon={{
-                      name: user.requests && user.requests[userId] ? 'check' : 'user-plus',
+                      name: user.requests && user.requests[currentUserId] ? 'check' : 'user-plus',
                       type: 'font-awesome',
                       size: 25,
-                      color: user.requests && user.requests[userId] ? 'green' : '#222831',
+                      color: user.requests && user.requests[currentUserId] ? 'green' : '#222831',
                     }}
                     onPress={() => toggleFriendRequest(user.id)}
                   />
@@ -389,7 +409,6 @@ function MapScreen() {
         )}
         <MapView
           ref={mapRef}
-          // provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           initialRegion={{
@@ -407,7 +426,7 @@ function MapScreen() {
         >
           {location && (
             <Marker.Animated
-              key={userId}
+              key={currentUserId}
               coordinate={new AnimatedRegion({
                 latitude: location.latitude,
                 longitude: location.longitude,
@@ -416,17 +435,12 @@ function MapScreen() {
               })}
               title="You"
             >
-              <UserAvatarMarker
-                user={{ name: userName }}
-                color="#00ADB5"
-              />
+              <UserAvatarMarker user={{ name: currentUserName }} color="#00ADB5" />
             </Marker.Animated>
           )}
-          {Object.entries(users).filter(([id]) => id !== userId).map(([id, user]) => (
+          {Object.entries(users).filter(([id]) => id !== currentUserId).map(([id, user]) => (
             <Marker.Animated key={id} coordinate={userMarkers.get(id)} title={user.name || 'Anonymous'}>
-              <UserAvatarMarker
-                user={user}
-              />
+              <UserAvatarMarker user={user} />
             </Marker.Animated>
           ))}
         </MapView>
@@ -438,7 +452,7 @@ function MapScreen() {
               name="location-arrow"
               type="font-awesome"
               size={25}
-              color={isTracking ? "#FFF" : "#00ADB5"}
+              color={isTracking ? '#FFF' : '#00ADB5'}
             />
           }
           onPress={() => setIsTracking(!isTracking)}
@@ -446,143 +460,139 @@ function MapScreen() {
       </View>
     </KeyboardAvoidingView>
   );
-}
+};
 
-// if (loading) {
-//   return (
-//     <View style={styles.loaderContainer}>
-//       <ActivityIndicator size="large" color="#00ADB5" />
-//     </View>
-//   );
-// }
+const FriendsScreen = () => {
+  const { users, currentUserId, updateUser } = useUsers();
 
-function FriendsScreen() {
-  const [userId, setUserId] = useState('');
+  const acceptFriendRequest = async (friendId) => {
+    // Add each user's UUID to each other's "friends" element
+    const currentUserRef = ref(database, `users/${currentUserId}`);
+    const friendUserRef = ref(database, `users/${friendId}`);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const storedUserId = await AsyncStorage.getItem('userId');
-      if (storedUserId) {
-        setUserId(storedUserId);
-      }
-    };
+    await update(currentUserRef, {
+      [`friends/${friendId}`]: true,
+    });
+    await update(friendUserRef, {
+      [`friends/${currentUserId}`]: true,
+    });
 
-    fetchUserData();
-  }, []);
+    // Remove requests from both users
+    await update(currentUserRef, {
+      [`requests/${friendId}`]: null,
+    });
+    await update(friendUserRef, {
+      [`requests/${currentUserId}`]: null,
+    });
 
-  function FriendRequestCard({ username, onAccept, onReject }) {
-    return (
-      <View style={styles.friendRequestCard}>
-        <View style={styles.friendRequestHeader}>
-          <Icon
-            name="bell-o"
-            type="font-awesome"
-            color="white"
-            size={30}
-            containerStyle={styles.friendRequestIcon}
-          />
-          <Text style={styles.friendRequestText}>{username} asked to be your friend!</Text>
-        </View>
-        <View style={styles.friendRequestActions}>
-          <Button
-            type="outline"
-            title="Hel yeah!"
-            icon={{
-              name: 'check',
-              type: 'font-awesome',
-              color: 'green'
-            }}
-            titleStyle={{ color: 'white' }}
-            buttonStyle={styles.acceptButton}
-            onPress={onAccept}
-          />
-          <Button
-            type="outline"
-            title="Eww no..."
-            icon={{
-              name: 'times',
-              type: 'font-awesome',
-              color: 'red'
-            }}
-            titleStyle={{ color: 'white' }}
-            buttonStyle={styles.rejectButton}
-            onPress={onReject}
-          />
-        </View>
+    console.log(`Accepted friend request from ${friendId}`);
+  };
+
+  const rejectFriendRequest = async (friendId) => {
+    // Remove the request from the current user's requests
+    const currentUserRef = ref(database, `users/${currentUserId}`);
+    await update(currentUserRef, {
+      [`requests/${friendId}`]: null,
+    });
+
+    console.log(`Rejected friend request from ${friendId}`);
+  };
+
+  const FriendRequestCard = ({ username, onAccept, onReject }) => (
+    <View style={styles.friendRequestCard}>
+      <View style={styles.friendRequestHeader}>
+        <Icon
+          name="bell-o"
+          type="font-awesome"
+          color="white"
+          size={30}
+          containerStyle={styles.friendRequestIcon}
+        />
+        <Text style={styles.friendRequestText}>{username} asked to be your friend!</Text>
       </View>
-    );
-  }
-  
+      <View style={styles.friendRequestActions}>
+        <Button
+          type="outline"
+          title="Hel yeah!"
+          icon={{
+            name: 'check',
+            type: 'font-awesome',
+            color: 'green',
+          }}
+          titleStyle={{ color: 'white' }}
+          buttonStyle={styles.acceptButton}
+          onPress={onAccept}
+        />
+        <Button
+          type="outline"
+          title="Eww no..."
+          icon={{
+            name: 'times',
+            type: 'font-awesome',
+            color: 'red',
+          }}
+          titleStyle={{ color: 'white' }}
+          buttonStyle={styles.rejectButton}
+          onPress={onReject}
+        />
+      </View>
+    </View>
+  );
+
+  const friendRequests = users[currentUserId]?.requests || {};
+
   return (
     <View style={styles.friendsContainer}>
       <Header />
       <View style={styles.friendsHeader}>
         <Text style={styles.friendsTitle}>Friends</Text>
         <Button
-        type="outline"
+          type="outline"
           icon={{
             name: 'plus',
             type: 'font-awesome',
             size: 15,
-            color: '#00ADB5'
+            color: '#00ADB5',
           }}
           title="Add friend"
           buttonStyle={styles.addFriendButton}
           titleStyle={{ color: 'white' }}
-          onPress={() => console.log("Add friend button pressed:", userId)}
+          onPress={() => console.log('Add friend button pressed:', currentUserId)}
         />
       </View>
-      <ScrollView style={styles.friendRequestsContainer}>        
-        {Object.entries(users).map(([id, user]) => (user.requests && user.requests[userId] && (
+      <ScrollView style={styles.friendRequestsContainer}>
+        {Object.entries(friendRequests).map(([id, _]) => (
           <FriendRequestCard
             key={id}
-            username={user.name}
-            onAccept={() => {
-              console.log("Accepted friend request from", user.name);
-            }}
-            onReject={() => {
-              console.log("Rejected friend request from", user.name);
-            }}
+            username={users[id]?.name}
+            onAccept={() => acceptFriendRequest(id)}
+            onReject={() => rejectFriendRequest(id)}
           />
-        )))}
+        ))}
       </ScrollView>
       <View style={styles.friendsListContainer}>
         <Text style={styles.sectionTitle}>Your Friends</Text>
-        {/* Mockup for friend list */}
-        <Text style={{ color: 'white' }}>Ravaka Ramarozatovo</Text>
+        {Object.entries(users[currentUserId]?.friends || {}).map(([friendId, _]) => (
+          <Text key={friendId} style={{ color: 'white' }}>
+            {users[friendId]?.name}
+          </Text>
+        ))}
       </View>
     </View>
   );
-}
+};
 
-function YouScreen() {
-  const [userName, setUserName] = useState('');
-  const [userId, setUserId] = useState('');
+const YouScreen = () => {
+  const { currentUserId, currentUserName, setCurrentUserName, updateUser } = useUsers();
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const storedUserName = await AsyncStorage.getItem('userName');
-      const storedUserId = await AsyncStorage.getItem('userId');
-      if (storedUserName) {
-        setUserName(storedUserName);
-      }
-      if (storedUserId) {
-        setUserId(storedUserId);
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  const handleNameChange = text => {
-    setUserName(text);
+  const handleNameChange = (text) => {
+    setCurrentUserName(text);
   };
 
   const handleNameSubmit = async () => {
-    if (userId) {
-      const userRef = ref(database, `users/${userId}`);
-      update(userRef, { name: userName.trim() });
-      await AsyncStorage.setItem('userName', userName.trim());
+    if (currentUserId) {
+      updateUser(currentUserId, { name: currentUserName.trim() });
+      await AsyncStorage.setItem('userName', currentUserName.trim());
     }
   };
 
@@ -592,7 +602,7 @@ function YouScreen() {
       <Text style={styles.settingsTitle}>Your Profile</Text>
       <TextInput
         style={styles.nameInput}
-        value={userName}
+        value={currentUserName}
         onChangeText={handleNameChange}
         placeholder="Enter your name"
         placeholderTextColor="#CCCCCC"
@@ -601,33 +611,36 @@ function YouScreen() {
       <TouchableOpacity onPress={handleNameSubmit} style={styles.saveButton}>
         <Text style={styles.saveButtonText}>Save</Text>
       </TouchableOpacity>
-      <Text style={styles.uuidText}>Your UUID: {userId}</Text>
+      <Text style={styles.uuidText}>Your UUID: {currentUserId}</Text>
       <TouchableOpacity onPress={async () => {
         await AsyncStorage.clear();
-        setUserName('');
-        setUserId('');
+        setCurrentUserName('');
+        setCurrentUserId('');
       }} style={styles.deleteButton}>
         <Text style={styles.deleteButtonText}>Delete All Data</Text>
       </TouchableOpacity>
     </View>
   );
-}
+};
 
-export default function App() {
+const App = () => {
   const [showOnboarding, setShowOnboarding] = useState(null);
-  const [userName, setUserName] = useState('');
-  const [userId, setUserId] = useState('');
+  const { currentUserName, currentUserId, setCurrentUserName, setCurrentUserId } = useUsers();
 
   useEffect(() => {
     const checkUserData = async () => {
-      const storedUserName = await AsyncStorage.getItem('userName');
-      const storedUserId = await AsyncStorage.getItem('userId');
-      if (storedUserId && storedUserName) {
-        setUserId(storedUserId);
-        setUserName(storedUserName);
-        setShowOnboarding(false);
-      } else {
-        setShowOnboarding(true);
+      try {
+        const storedUserName = await AsyncStorage.getItem('userName');
+        const storedUserId = await AsyncStorage.getItem('userId');
+        if (storedUserId && storedUserName) {
+          setCurrentUserId(storedUserId);
+          setCurrentUserName(storedUserName);
+          setShowOnboarding(false);
+        } else {
+          setShowOnboarding(true);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
       }
     };
 
@@ -635,8 +648,8 @@ export default function App() {
   }, []);
 
   const handleFinishOnboarding = (username, userId) => {
-    setUserName(username);
-    setUserId(userId);
+    setCurrentUserName(username);
+    setCurrentUserId(userId);
     setShowOnboarding(false);
   };
 
@@ -646,35 +659,51 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      <Tab.Navigator screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#00ADB5',
-        tabBarInactiveTintColor: '#EEEEEE',
-        tabBarStyle: styles.bottomNavBar,
-      }}>
-        <Tab.Screen name="Map" component={MapScreen} options={{
-          tabBarIcon: ({ color, size }) => (
-            <FontAwesome6 name="earth-americas" size={size} color={color} />
-          ),
-        }} />
-        <Tab.Screen name="Friends" component={FriendsScreen} options={{
-          tabBarIcon: ({ color, size }) => (
-            <FontAwesome6 name="users" size={size} color={color} />
-          ),
-        }} />
-        <Tab.Screen name="You" component={YouScreen} options={{
-          tabBarIcon: ({ color, size }) => (
-            // <Avatar
-            //   size={size}
-            //   rounded
-            //   title={getTwoFirstLetters(userName)}
-            //   containerStyle={{ backgroundColor: "#00ADB5" }}
-            // />
-            <UserAvatarMarker user={{ name: userName }} size={size} />
-          ),
-        }} />
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: '#00ADB5',
+          tabBarInactiveTintColor: '#EEEEEE',
+          tabBarStyle: styles.bottomNavBar,
+        }}
+      >
+        <Tab.Screen
+          name="Map"
+          component={MapScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <FontAwesome6 name="earth-americas" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Friends"
+          component={FriendsScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <FontAwesome6 name="users" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="You"
+          component={YouScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <UserAvatarMarker user={{ name: currentUserName }} size={size} />
+            ),
+          }}
+        />
       </Tab.Navigator>
       <StatusBar barStyle="light-content" />
     </NavigationContainer>
+  );
+};
+
+export default function Root() {
+  return (
+    <UsersProvider>
+      <App />
+    </UsersProvider>
   );
 }
