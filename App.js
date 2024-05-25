@@ -218,7 +218,7 @@ const MapScreen = () => {
 
       if (currentUserId && currentUserName) {
         const userRef = ref(database, `users/${currentUserId}`);
-        set(userRef, {
+        update(userRef, {
           name: currentUserName,
           location: currentLocation.coords,
           timestamp: Date.now(),
@@ -251,6 +251,7 @@ const MapScreen = () => {
         }, (newLocation) => {
           setLocation(newLocation.coords);
           updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
+          updateMarkers();
           if (isTracking && mapRef.current) {
             mapRef.current.animateToRegion({
               latitude: newLocation.coords.latitude,
@@ -267,6 +268,29 @@ const MapScreen = () => {
 
     initLocationTracking();
   }, [currentUserId, currentUserName]);
+
+  const updateMarkers = () => {
+    const usersRef = ref(database, 'users');
+    onValue(usersRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      Object.entries(data).forEach(([id, user]) => {
+        if (id !== currentUserId) {
+          const newRegion = new AnimatedRegion({
+            latitude: user.location.latitude,
+            longitude: user.location.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          });
+          if (userMarkers.has(id)) {
+            const region = userMarkers.get(id);
+            region.timing(newRegion).start();
+          } else {
+            userMarkers.set(id, newRegion);
+          }
+        }
+      });
+    });
+  };
 
   const handleSearch = (query) => {
     setSearchQuery(query);
@@ -298,6 +322,25 @@ const MapScreen = () => {
     }, {
       onlyOnce: true,
     });
+  };
+
+  const removeFriend = async (friendId) => {
+    if (!currentUserId) {
+      console.log('User ID is not set');
+      return;
+    }
+
+    const currentUserRef = ref(database, `users/${currentUserId}`);
+    const friendUserRef = ref(database, `users/${friendId}`);
+
+    await update(currentUserRef, {
+      [`friends/${friendId}`]: null,
+    });
+    await update(friendUserRef, {
+      [`friends/${currentUserId}`]: null,
+    });
+
+    console.log(`Removed friend ${friendId}`);
   };
 
   const recenterMap = () => {
@@ -381,29 +424,32 @@ const MapScreen = () => {
         {(searchActive || searchQuery) && (
           <View style={styles.searchResultsContainer}>
             <ScrollView>
-              {sortedUsers.map((user) => (
-                <ListItem
-                  key={user.id}
-                  bottomDivider
-                  onPress={() => zoomToUserLocation(user.location)}
-                >
-                  <UserAvatarMarker user={user} size={30} color="#00ADB5" />
-                  <ListItem.Content>
-                    <ListItem.Title>{user.name}</ListItem.Title>
-                    <ListItem.Subtitle>{user.distance.toFixed(2)} km away</ListItem.Subtitle>
-                  </ListItem.Content>
-                  <Button
-                    type="clear"
-                    icon={{
-                      name: user.requests && user.requests[currentUserId] ? 'check' : 'user-plus',
-                      type: 'font-awesome',
-                      size: 25,
-                      color: user.requests && user.requests[currentUserId] ? 'green' : '#222831',
-                    }}
-                    onPress={() => toggleFriendRequest(user.id)}
-                  />
-                </ListItem>
-              ))}
+              {sortedUsers.map((user) => {
+                const isFriend = users[currentUserId]?.friends?.[user.id];
+                return (
+                  <ListItem
+                    key={user.id}
+                    bottomDivider
+                    onPress={() => zoomToUserLocation(user.location)}
+                  >
+                    <UserAvatarMarker user={user} size={30} color="#00ADB5" />
+                    <ListItem.Content>
+                      <ListItem.Title>{user.name}</ListItem.Title>
+                      <ListItem.Subtitle>{user.distance.toFixed(2)} km away</ListItem.Subtitle>
+                    </ListItem.Content>
+                    <Button
+                      type="clear"
+                      icon={{
+                        name: isFriend ? 'user-times' : user.requests && user.requests[currentUserId] ? 'check' : 'user-plus',
+                        type: 'font-awesome',
+                        size: 25,
+                        color: isFriend ? 'red' : user.requests && user.requests[currentUserId] ? 'green' : '#222831',
+                      }}
+                      onPress={() => isFriend ? removeFriend(user.id) : toggleFriendRequest(user.id)}
+                    />
+                  </ListItem>
+                );
+              })}
             </ScrollView>
           </View>
         )}
@@ -455,7 +501,7 @@ const MapScreen = () => {
               color={isTracking ? '#FFF' : '#00ADB5'}
             />
           }
-          onPress={() => setIsTracking(!isTracking)}
+          onPress={recenterMap}
         />
       </View>
     </KeyboardAvoidingView>
