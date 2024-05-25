@@ -446,4 +446,35 @@ trackingButton: {
     borderWidth: 2,
     borderRadius: 5,
   },
+  userDetailCard: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
+    elevation: 5,
+  },
+  userDetailName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  userDetailDistance: {
+    fontSize: 16,
+    marginTop: 5,
+  },
+  userDetailTimestamp: {
+    fontSize: 14,
+    color: 'gray',
+    marginTop: 5,
+  },
+  closeButton: {
+    marginTop: 10,
+    backgroundColor: '#00ADB5',
+  },
 });

@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useRef, createContext, useContext } from 'react';
 import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, ScrollView, KeyboardAvoidingView, Image, Platform } from 'react-native';
 import { Avatar, Button, Icon, SearchBar, Chip, ListItem } from '@rneui/themed';
-import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import 'react-native-get-random-values';
 import { initializeApp } from 'firebase/app';
@@ -15,11 +15,9 @@ import { generateUsername } from './generateUsername';
 import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
-// Create context for users
 const UsersContext = createContext();
 
 const useUsers = () => {
@@ -135,6 +133,23 @@ const deg2rad = (deg) => {
   return deg * (Math.PI / 180);
 };
 
+const formatTimeAgo = (timestamp) => {
+  const now = Date.now();
+  const diff = now - timestamp;
+
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return `${seconds} seconds ago`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minutes ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hours ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days} days ago`;
+};
+
 const OnboardingScreen = ({ onFinish }) => {
   const pagerRef = useRef(null);
   const [username, setUsername] = useState(generateUsername('-', 3));
@@ -182,7 +197,6 @@ const MapScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const searchBarRef = useRef(null);
   const [searchActive, setSearchActive] = useState(false);
-  const userMarkers = useRef(new Map()).current;
   const [isTracking, setIsTracking] = useState(false);
 
   const { users, currentUserId, currentUserName, updateUser } = useUsers();
@@ -224,34 +238,12 @@ const MapScreen = () => {
           timestamp: Date.now(),
         });
 
-        const usersRef = ref(database, 'users');
-        onValue(usersRef, (snapshot) => {
-          const data = snapshot.val() || {};
-          Object.entries(data).forEach(([id, user]) => {
-            if (id !== currentUserId) {
-              const newRegion = new AnimatedRegion({
-                latitude: user.location.latitude,
-                longitude: user.location.longitude,
-                latitudeDelta: 0.0922,
-                longitudeDelta: 0.0421,
-              });
-              if (userMarkers.has(id)) {
-                const region = userMarkers.get(id);
-                region.timing(newRegion).start();
-              } else {
-                userMarkers.set(id, newRegion);
-              }
-            }
-          });
-        });
-
         Location.watchPositionAsync({
           accuracy: Location.Accuracy.High,
           distanceInterval: 10,
         }, (newLocation) => {
           setLocation(newLocation.coords);
           updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
-          updateMarkers();
           if (isTracking && mapRef.current) {
             mapRef.current.animateToRegion({
               latitude: newLocation.coords.latitude,
@@ -269,28 +261,6 @@ const MapScreen = () => {
     initLocationTracking();
   }, [currentUserId, currentUserName]);
 
-  const updateMarkers = () => {
-    const usersRef = ref(database, 'users');
-    onValue(usersRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      Object.entries(data).forEach(([id, user]) => {
-        if (id !== currentUserId) {
-          const newRegion = new AnimatedRegion({
-            latitude: user.location.latitude,
-            longitude: user.location.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          });
-          if (userMarkers.has(id)) {
-            const region = userMarkers.get(id);
-            region.timing(newRegion).start();
-          } else {
-            userMarkers.set(id, newRegion);
-          }
-        }
-      });
-    });
-  };
 
   const handleSearch = (query) => {
     setSearchQuery(query);
@@ -298,6 +268,7 @@ const MapScreen = () => {
 
   const handleMapAllPress = () => {
     console.log('All was pressed!');
+    console.log(users);
   };
 
   const handleMapFriendsPress = () => {
@@ -485,7 +456,12 @@ const MapScreen = () => {
             </Marker.Animated>
           )}
           {Object.entries(users).filter(([id]) => id !== currentUserId).map(([id, user]) => (
-            <Marker.Animated key={id} coordinate={userMarkers.get(id)} title={user.name || 'Anonymous'}>
+            <Marker.Animated key={id} coordinate={new AnimatedRegion({
+              latitude: user.location.latitude,
+              longitude: user.location.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            })} title={user.name || 'Anonymous'}>
               <UserAvatarMarker user={user} />
             </Marker.Animated>
           ))}
@@ -501,18 +477,18 @@ const MapScreen = () => {
               color={isTracking ? '#FFF' : '#00ADB5'}
             />
           }
-          onPress={recenterMap}
+          onPress={() => recenterMap()}
         />
       </View>
     </KeyboardAvoidingView>
   );
 };
 
+
 const FriendsScreen = () => {
   const { users, currentUserId, updateUser } = useUsers();
 
   const acceptFriendRequest = async (friendId) => {
-    // Add each user's UUID to each other's "friends" element
     const currentUserRef = ref(database, `users/${currentUserId}`);
     const friendUserRef = ref(database, `users/${friendId}`);
 
@@ -523,7 +499,6 @@ const FriendsScreen = () => {
       [`friends/${currentUserId}`]: true,
     });
 
-    // Remove requests from both users
     await update(currentUserRef, {
       [`requests/${friendId}`]: null,
     });
@@ -535,7 +510,6 @@ const FriendsScreen = () => {
   };
 
   const rejectFriendRequest = async (friendId) => {
-    // Remove the request from the current user's requests
     const currentUserRef = ref(database, `users/${currentUserId}`);
     await update(currentUserRef, {
       [`requests/${friendId}`]: null,
