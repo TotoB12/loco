@@ -54,7 +54,8 @@
     "owner": "totob12",
     "plugins": [
       "expo-router",
-      "expo-asset"
+      "expo-asset",
+      "expo-font"
     ]
   }
 }

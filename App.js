@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useRef, createContext, useContext } from 'react';
-import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, ScrollView, KeyboardAvoidingView, Image, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, ScrollView, KeyboardAvoidingView, Image, Platform, Modal, Pressable } from 'react-native';
 import { Avatar, Button, Icon, SearchBar, Chip, ListItem } from '@rneui/themed';
 import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -11,6 +11,7 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import ViewPager from '@react-native-community/viewpager';
+import * as Linking from 'expo-linking';
 import { generateUsername } from './generateUsername';
 import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
@@ -154,6 +155,20 @@ const OnboardingScreen = ({ onFinish }) => {
   const pagerRef = useRef(null);
   const [username, setUsername] = useState(generateUsername('-', 3));
 
+  const finishSetup = async () => {
+    const userId = await generateUuidAndSave();
+    await AsyncStorage.setItem('userName', username);
+    await set(ref(database, `users/${userId}`), {
+      id: userId,
+      name: username,
+      location: null,
+      timestamp: Date.now(),
+      friends: {},
+      requests: {}
+    });
+    onFinish(username, userId);
+  };
+
   return (
     <ViewPager style={{ flex: 1 }} ref={pagerRef}>
       <View key="1" style={styles.page}>
@@ -178,15 +193,126 @@ const OnboardingScreen = ({ onFinish }) => {
       <View key="3" style={[styles.page, { backgroundColor: '#eb8f8f' }]}>
         <Text style={styles.title}>smt idk anymore</Text>
         <FontAwesome6 name="globe" size={100} color="white" />
-        <TouchableOpacity onPress={async () => {
-          const userId = await generateUuidAndSave();
-          await AsyncStorage.setItem('userName', username);
-          onFinish(username, userId);
-        }} style={styles.button}>
+        <TouchableOpacity onPress={finishSetup} style={styles.button}>
           <Text style={styles.buttonText}>Finish Setup</Text>
         </TouchableOpacity>
       </View>
     </ViewPager>
+  );
+};
+
+const UserDialog = ({ isVisible, onClose, user }) => {
+  const { currentUserId, users, updateUser } = useUsers();
+  if (!user) return null;
+
+  const isFriend = users[currentUserId]?.friends?.[user.id];
+  const hasSentRequest = users[user.id]?.requests?.[currentUserId];
+
+  const handleFriendButtonPress = async () => {
+    if (isFriend) {
+      await removeFriend(user.id);
+    } else {
+      await toggleFriendRequest(user.id);
+    }
+    onClose();
+  };
+
+  const handleCopyAddress = () => {
+    console.log("Copy address pressed");
+  };
+
+  const handleCopyCoordinates = () => {
+    console.log("Copy coordinates pressed");
+  };
+
+  const handleSetDirections = () => {
+    const url = `http://maps.google.com/?q=${user.location.latitude},${user.location.longitude}`;
+    Linking.openURL(url);
+  };
+
+  const removeFriend = async (friendId) => {
+    if (!currentUserId) {
+      console.log('User ID is not set');
+      return;
+    }
+
+    const currentUserRef = ref(database, `users/${currentUserId}`);
+    const friendUserRef = ref(database, `users/${friendId}`);
+
+    await update(currentUserRef, {
+      [`friends/${friendId}`]: null,
+    });
+    await update(friendUserRef, {
+      [`friends/${currentUserId}`]: null,
+    });
+
+    console.log(`Removed friend ${friendId}`);
+  };
+
+  const toggleFriendRequest = async (receiverId) => {
+    if (!currentUserId) {
+      console.log('User ID is not set');
+      return;
+    }
+
+    const requestsRef = ref(database, `users/${receiverId}/requests/${currentUserId}`);
+    onValue(requestsRef, async (snapshot) => {
+      if (snapshot.exists()) {
+        await set(requestsRef, null);
+        console.log('Friend request removed.');
+      } else {
+        await set(requestsRef, true);
+        console.log('Friend request sent!');
+      }
+    }, {
+      onlyOnce: true,
+    });
+  };
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}
+      onDismiss={onClose}
+    >
+      <Pressable style={styles.centeredView} onPress={onClose}>
+        <View style={styles.modalView}>
+          <Text style={styles.modalText}>{user.name}</Text>
+          <Button
+            title={isFriend ? "Remove friend" : hasSentRequest ? "Cancel friend request" : "Send friend request"}
+            onPress={handleFriendButtonPress}
+            buttonStyle={styles.dialogButton}
+            titleStyle={styles.dialogButtonTitle}
+          />
+          <Button
+            title="Copy address"
+            onPress={handleCopyAddress}
+            buttonStyle={styles.dialogButton}
+            titleStyle={styles.dialogButtonTitle}
+          />
+          <Button
+            title="Copy coordinates"
+            onPress={handleCopyCoordinates}
+            buttonStyle={styles.dialogButton}
+            titleStyle={styles.dialogButtonTitle}
+          />
+          <Button
+            title="Set directions"
+            onPress={handleSetDirections}
+            buttonStyle={styles.dialogButton}
+            titleStyle={styles.dialogButtonTitle}
+          />
+          {/* <Pressable
+            style={[styles.button, styles.buttonClose]}
+            onPress={onClose}
+          >
+            <Text style={styles.textStyle}>Hide Modal</Text>
+          </Pressable> */}
+        </View>
+      </Pressable>
+    </Modal>
   );
 };
 
@@ -198,6 +324,8 @@ const MapScreen = () => {
   const searchBarRef = useRef(null);
   const [searchActive, setSearchActive] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [dialogUser, setDialogUser] = useState(null);
 
   const { users, currentUserId, currentUserName, updateUser } = useUsers();
 
@@ -261,7 +389,6 @@ const MapScreen = () => {
     initLocationTracking();
   }, [currentUserId, currentUserName]);
 
-
   const handleSearch = (query) => {
     setSearchQuery(query);
   };
@@ -273,6 +400,49 @@ const MapScreen = () => {
 
   const handleMapFriendsPress = () => {
     console.log('Friends was pressed!');
+  };
+
+  const handleCalloutPress = (user) => {
+    setDialogUser(user);
+    setDialogVisible(true);
+  };
+
+  const renderCalloutContent = (user) => {
+    const isCurrentUser = user.id === currentUserId;
+    const distance = location
+      ? getDistanceFromLatLonInKm(
+        location.latitude,
+        location.longitude,
+        user.location.latitude,
+        user.location.longitude
+      ).toFixed(2)
+      : 'Unknown';
+    const timeAgo = formatTimeAgo(user.timestamp);
+
+    return (
+      <Callout onPress={() => handleCalloutPress(user)} >
+        <View style={[styles.card]}>
+          <Avatar
+            size={25}
+            rounded
+            title={user.name.substring(0, 2).toUpperCase()}
+            containerStyle={styles.avatar}
+          />
+          <View style={styles.info}>
+            <Text style={styles.name}>{user.name}</Text>
+            {!isCurrentUser && (
+              <>
+                <Text style={styles.details}>{distance} km away</Text>
+                <Text style={styles.details}>{timeAgo}</Text>
+              </>
+            )}
+          </View>
+          <View style={styles.userOptions}>
+            <Icon name="dots-three-vertical" type="entypo" color="black" size={20} />
+          </View>
+        </View>
+      </Callout>
+    );
   };
 
   const toggleFriendRequest = async (receiverId) => {
@@ -452,16 +622,22 @@ const MapScreen = () => {
               })}
               title="You"
             >
+              {renderCalloutContent({ id: currentUserId, name: currentUserName, location })}
               <UserAvatarMarker user={{ name: currentUserName }} color="#00ADB5" />
             </Marker.Animated>
           )}
           {Object.entries(users).filter(([id]) => id !== currentUserId).map(([id, user]) => (
-            <Marker.Animated key={id} coordinate={new AnimatedRegion({
-              latitude: user.location.latitude,
-              longitude: user.location.longitude,
-              latitudeDelta: 0.0922,
-              longitudeDelta: 0.0421,
-            })} title={user.name || 'Anonymous'}>
+            <Marker.Animated
+              key={id}
+              coordinate={new AnimatedRegion({
+                latitude: user.location.latitude,
+                longitude: user.location.longitude,
+                latitudeDelta: 0.0922,
+                longitudeDelta: 0.0421,
+              })}
+              title={user.name || 'Anonymous'}
+            >
+              {renderCalloutContent(user)}
               <UserAvatarMarker user={user} />
             </Marker.Animated>
           ))}
@@ -480,10 +656,14 @@ const MapScreen = () => {
           onPress={() => recenterMap()}
         />
       </View>
+      <UserDialog
+        isVisible={dialogVisible}
+        onClose={() => setDialogVisible(false)}
+        user={dialogUser}
+      />
     </KeyboardAvoidingView>
   );
 };
-
 
 const FriendsScreen = () => {
   const { users, currentUserId, updateUser } = useUsers();
