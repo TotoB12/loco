@@ -399,11 +399,9 @@ trackingButton: {
     // backgroundColor: '#00ADB5',
     borderColor: 'gray',
     borderRadius: 5,
+    borderWidth: 1.5,
   },
-  friendRequestsContainer: {
-    padding: 10,
-  },
-  friendsListContainer: {
+  friendPageContainer: {
     padding: 10,
   },
   sectionTitle: {
@@ -415,19 +413,25 @@ trackingButton: {
     backgroundColor: '#2b3543',
     // marginBottom: 10,
     padding: 20,
-    borderRadius: 5,
+    borderRadius: 7,
   },
   friendRequestHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 20,
   },
   friendRequestIcon: {
     marginRight: 10,
+    marginLeft: 10,
   },
   friendRequestText: {
     flex: 1,
     color: 'white',
+    fontSize: 18,
+  },
+  friendRequestUsernameText: {
+    // flex: 1,
+    color: '#00ADB5', // "#00ADB5
     fontSize: 18,
   },
   friendRequestActions: {
@@ -437,13 +441,13 @@ trackingButton: {
   acceptButton: {
     // backgroundColor: 'green',
     borderColor: 'green',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderRadius: 5,
   },
   rejectButton: {
     // backgroundColor: 'red',
     borderColor: 'red',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderRadius: 5,
   },
   userDetailCard: {
@@ -556,6 +560,16 @@ trackingButton: {
     width: '100%',
   },
   dialogButtonTitle: {
+    color: 'black',
+  },
+  emptyFriendsText: {
+    textAlign: 'center',
+    color: '#EEEEEE',
+    marginTop: 20,
+    fontSize: 20,
+  },
+  friendsList: {
+    backgroundColor: 'black',
     color: 'black',
   },
 });

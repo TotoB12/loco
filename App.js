@@ -534,7 +534,7 @@ const MapScreen = () => {
               placeholder="Search for users..."
               onChangeText={handleSearch}
               value={searchQuery}
-              onFocus={() => setSearchActive(true)}
+              onFocus={() => {setSearchActive(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}}
               ref={searchBarRef}
               containerStyle={styles.searchContainerStyle}
               inputContainerStyle={styles.searchInputContainerStyle}
@@ -711,13 +711,15 @@ const FriendsScreen = () => {
     <View style={styles.friendRequestCard}>
       <View style={styles.friendRequestHeader}>
         <Icon
-          name="bell-o"
-          type="font-awesome"
+          // name="bell-o"
+          // type="font-awesome"
+          name="bell-ring-outline"
+          type="material-community"
           color="white"
-          size={30}
+          size={27}
           containerStyle={styles.friendRequestIcon}
         />
-        <Text style={styles.friendRequestText}>{username} asked to be your friend!</Text>
+        <Text style={styles.friendRequestUsernameText}>{username}</Text><Text style={styles.friendRequestText}> asked to be your friend!</Text>
       </View>
       <View style={styles.friendRequestActions}>
         <Button
@@ -748,6 +750,11 @@ const FriendsScreen = () => {
     </View>
   );
 
+  const friends = users[currentUserId]?.friends || {};
+  const friendsList = Object.keys(friends).map(friendId => ({
+    id: friendId,
+    ...users[friendId]
+  }));
   const friendRequests = users[currentUserId]?.requests || {};
 
   return (
@@ -758,35 +765,59 @@ const FriendsScreen = () => {
         <Button
           type="outline"
           icon={{
-            name: 'plus',
-            type: 'font-awesome',
-            size: 15,
+            // name: 'plus',
+            // type: 'font-awesome',
+            name: 'user-plus',
+            type: 'feather',
+            size: 20, // 15
             color: '#00ADB5',
           }}
           title="Add friend"
           buttonStyle={styles.addFriendButton}
           titleStyle={{ color: 'white' }}
-          onPress={() => console.log('Add friend button pressed:', currentUserId)}
+          onPress={() => {console.log('Add friend button pressed:', currentUserId); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}}
         />
       </View>
-      <ScrollView style={styles.friendRequestsContainer}>
-        {Object.entries(friendRequests).map(([id, _]) => (
+      <ScrollView style={styles.friendPageContainer}>
+      {Object.entries(friendRequests).map(([id, _]) => (
           <FriendRequestCard
             key={id}
             username={users[id]?.name}
-            onAccept={() => acceptFriendRequest(id)}
-            onReject={() => rejectFriendRequest(id)}
+            onAccept={() => {acceptFriendRequest(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}}
+            onReject={() => {rejectFriendRequest(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}}
           />
         ))}
+        {friendsList.length === 0 ? (
+          <Text style={styles.emptyFriendsText}>You sure seem lonely...</Text>
+        ) : (
+          friendsList.map((friend) => (
+            <ListItem key={friend.id} style={styles.friendsList} bottomDivider>
+              <UserAvatarMarker user={{ name: friend.name }} color="#00ADB5" />
+              <ListItem.Content>
+                <ListItem.Title>{friend.name}</ListItem.Title>
+                <ListItem.Subtitle>
+                  {getDistanceFromLatLonInKm(
+                    users[currentUserId].location.latitude,
+                    users[currentUserId].location.longitude,
+                    friend.location.latitude,
+                    friend.location.longitude
+                  ).toFixed(2)} km away
+                </ListItem.Subtitle>
+              </ListItem.Content>
+              <Button
+                type="clear"
+                icon={{
+                  name: 'dots-three-vertical',
+                  type: 'entypo',
+                  color: 'black',
+                  size: 20,
+                }}
+                onPress={() => console.log('Friend options pressed')}
+              />
+            </ListItem>
+          ))
+        )}
       </ScrollView>
-      <View style={styles.friendsListContainer}>
-        <Text style={styles.sectionTitle}>Your Friends</Text>
-        {Object.entries(users[currentUserId]?.friends || {}).map(([friendId, _]) => (
-          <Text key={friendId} style={{ color: 'white' }}>
-            {users[friendId]?.name}
-          </Text>
-        ))}
-      </View>
     </View>
   );
 };
