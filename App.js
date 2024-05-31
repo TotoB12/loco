@@ -6,9 +6,9 @@ import MapView, { Marker, AnimatedRegion, PROVIDER_GOOGLE, Callout } from 'react
 import * as Location from 'expo-location';
 import 'react-native-get-random-values';
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue, set, update } from 'firebase/database';
+import { getDatabase, ref, onValue, set, update, remove } from 'firebase/database';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationState } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import ViewPager from '@react-native-community/viewpager';
 import * as Linking from 'expo-linking';
@@ -534,7 +534,7 @@ const MapScreen = () => {
               placeholder="Search for users..."
               onChangeText={handleSearch}
               value={searchQuery}
-              onFocus={() => {setSearchActive(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}}
+              onFocus={() => { setSearchActive(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
               ref={searchBarRef}
               containerStyle={styles.searchContainerStyle}
               inputContainerStyle={styles.searchInputContainerStyle}
@@ -707,6 +707,12 @@ const FriendsScreen = () => {
     console.log(`Rejected friend request from ${friendId}`);
   };
 
+  const cancelPendingRequest = async (receiverId) => {
+    const receiverRef = ref(database, `users/${receiverId}/requests/${currentUserId}`);
+    await remove(receiverRef);
+    console.log(`Cancelled pending request to ${receiverId}`);
+  };
+
   const FriendRequestCard = ({ username, onAccept, onReject }) => (
     <View style={styles.friendRequestCard}>
       <View style={styles.friendRequestHeader}>
@@ -756,6 +762,7 @@ const FriendsScreen = () => {
     ...users[friendId]
   }));
   const friendRequests = users[currentUserId]?.requests || {};
+  const pendingRequests = Object.entries(users).filter(([id, user]) => user.requests && user.requests[currentUserId]);
 
   return (
     <View style={styles.friendsContainer}>
@@ -775,27 +782,28 @@ const FriendsScreen = () => {
           title="Add friend"
           buttonStyle={styles.addFriendButton}
           titleStyle={{ color: 'white' }}
-          onPress={() => {console.log('Add friend button pressed:', currentUserId); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}}
+          onPress={() => { console.log('Add friend button pressed:', currentUserId); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
         />
       </View>
       <ScrollView style={styles.friendPageContainer}>
-      {Object.entries(friendRequests).map(([id, _]) => (
+        {Object.entries(friendRequests).map(([id, _]) => (
           <FriendRequestCard
             key={id}
             username={users[id]?.name}
-            onAccept={() => {acceptFriendRequest(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}}
-            onReject={() => {rejectFriendRequest(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}}
+            onAccept={() => { acceptFriendRequest(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
+            onReject={() => { rejectFriendRequest(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
           />
         ))}
+
         {friendsList.length === 0 ? (
           <Text style={styles.emptyFriendsText}>You sure seem lonely...</Text>
         ) : (
           friendsList.map((friend) => (
-            <ListItem key={friend.id} style={styles.friendsList} bottomDivider>
+            <ListItem key={friend.id} style={styles.friendsList} containerStyle={styles.friendsListContainer} bottomDivider>
               <UserAvatarMarker user={{ name: friend.name }} color="#00ADB5" />
               <ListItem.Content>
-                <ListItem.Title>{friend.name}</ListItem.Title>
-                <ListItem.Subtitle>
+                <ListItem.Title style={styles.friendsListText}>{friend.name}</ListItem.Title>
+                <ListItem.Subtitle style={styles.friendsListText}>
                   {getDistanceFromLatLonInKm(
                     users[currentUserId].location.latitude,
                     users[currentUserId].location.longitude,
@@ -809,13 +817,43 @@ const FriendsScreen = () => {
                 icon={{
                   name: 'dots-three-vertical',
                   type: 'entypo',
-                  color: 'black',
+                  color: 'white',
                   size: 20,
                 }}
-                onPress={() => console.log('Friend options pressed')}
+                onPress={() => { console.log('Friend options pressed'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
               />
             </ListItem>
           ))
+        )}
+
+        {pendingRequests.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Pending Requests:</Text>
+            {pendingRequests.map(([id, user]) => (
+              <ListItem
+                key={id}
+                sytles={styles.friendsList}
+                containerStyle={styles.friendsListContainer}
+                bottomDivider
+                onPress={() => console.log('Pending request user pressed')}
+              >
+                <UserAvatarMarker user={user} size={30} color="gray" />
+                <ListItem.Content>
+                  <ListItem.Title style={styles.friendsPendingListText}>{user.name}</ListItem.Title>
+                </ListItem.Content>
+              <Button
+                type="clear"
+                icon={{
+                  name: 'closecircleo',
+                  type: 'antdesign',
+                  color: 'gray',
+                  size: 25,
+                }}
+                onPress={() => { cancelPendingRequest(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
+              />
+              </ListItem>
+            ))}
+          </>
         )}
       </ScrollView>
     </View>

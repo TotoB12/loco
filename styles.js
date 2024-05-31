@@ -405,9 +405,11 @@ trackingButton: {
     padding: 10,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 25,
+    fontWeight: 'bold',
     color: '#EEEEEE',
-    paddingVertical: 5,
+    paddingTop: 30,
+    paddingBottom: 10,
   },
   friendRequestCard: {
     backgroundColor: '#2b3543',
@@ -569,7 +571,15 @@ trackingButton: {
     fontSize: 20,
   },
   friendsList: {
-    backgroundColor: 'black',
-    color: 'black',
+    
+  },
+  friendsListContainer: {
+    backgroundColor: 'none',
+  },
+  friendsListText: {
+    color: 'white',
+  },
+  friendsPendingListText: {
+    color: 'gray',
   },
 });
