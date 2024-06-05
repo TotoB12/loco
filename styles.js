@@ -358,27 +358,11 @@ trackingButton: {
     fontSize: 18,
     color: '#07689f'
   },
-  uuidText: {
-    fontSize: 16,
-    color: '#EEEEEE',
-    marginTop: 20,
-  },
-  deleteButton: {
-    backgroundColor: '#D9534F',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-  },
-  deleteButtonText: {
-    color: 'white',
-    fontSize: 16,
-    textAlign: 'center',
-  },
   headerContainer: {
     backgroundColor: '#222831',
     // paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
-  friendsContainer: {
+  friendsPage: {
     flex: 1,
     backgroundColor: '#222831',
     padding: 10,
@@ -581,5 +565,147 @@ trackingButton: {
   },
   friendsPendingListText: {
     color: 'gray',
+  },
+  youPage: {
+    flex: 1,
+    backgroundColor: '#222831',
+    // padding: 10,
+  },
+  youContainer: {
+    flex: 1,
+    backgroundColor: '#222831',
+    alignItems: 'center',
+    // paddingTop: 20,
+    paddingBottom: 100,
+  },
+  youHeader: {
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  youTitle: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: '#EEEEEE',
+    marginBottom: 20,
+    marginTop: 15,
+  },
+  profileCard: {
+    backgroundColor: '#2b3543',
+    padding: 20,
+    borderRadius: 7,
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '90%',
+  },
+  profileAvatar: {
+    backgroundColor: '#00ADB5',
+    marginBottom: 22,
+  },
+  profileName: {
+    color: '#EEEEEE',
+    fontSize: 27,
+    marginBottom: 5,
+  },
+  profileFriends: {
+    color: 'gray',
+    fontSize: 16,
+  },
+  nameInputText: {
+    color: '#EEEEEE',
+    fontSize: 16,
+    left: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+    marginTop: 12,
+  },
+  nameInput: {
+    height: 60,
+    width: '90%',
+    fontSize: 17,
+    borderWidth: 1,
+    borderColor: '#00ADB5',
+    borderRadius: 7,
+    paddingHorizontal: 8,
+    color: '#EEEEEE',
+    backgroundColor: '#393E46',
+    marginBottom: 10,
+  },
+  unsavedChangesContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '80%',
+    marginBottom: 20,
+  },
+  saveButton: {
+    backgroundColor: '#00ADB5',
+    padding: 10,
+    borderRadius: 5,
+    marginRight: 10,
+  },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  cancelButton: {
+    backgroundColor: '#393E46',
+    padding: 10,
+    borderRadius: 5,
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  uuidText: {
+    fontSize: 16,
+    color: '#EEEEEE',
+    // paddingTop: 200,
+    marginBottom: 10,
+  },
+  hiddenSection: {
+    marginTop: 300,
+  },
+  deleteButton: {
+    backgroundColor: '#D9534F',
+    padding: 10,
+    borderRadius: 5,
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  onboardingPage: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#222831',
+  },
+  onboardingTitle: {
+    fontSize: 22,
+    color: '#EEEEEE',
+    marginBottom: 20,
+  },
+  onboardingInput: {
+    height: 40,
+    width: '80%',
+    borderWidth: 1,
+    borderColor: '#00ADB5',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    color: '#EEEEEE',
+    backgroundColor: '#393E46',
+    marginBottom: 16,
+  },
+  onboardingButton: {
+    backgroundColor: '#00ADB5',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    marginTop: 20,
+  },
+  onboardingButtonText: {
+    fontSize: 18,
+    color: 'white',
+    textAlign: 'center',
   },
 });

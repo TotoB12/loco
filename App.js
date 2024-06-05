@@ -175,30 +175,33 @@ const OnboardingScreen = ({ onFinish }) => {
 
   return (
     <ViewPager style={{ flex: 1 }} ref={pagerRef}>
-      <View key="1" style={styles.page}>
-        <Text style={styles.title}>Welcome to Loco</Text>
+      <View key="1" style={styles.onboardingPage}>
+        <Text style={styles.onboardingTitle}>Welcome to Loco</Text>
         <FontAwesome6 name="earth-americas" size={100} color="white" />
-        <TouchableOpacity onPress={() => pagerRef.current.setPage(1)} style={styles.button}>
-          <Text style={styles.buttonText}>Next</Text>
+        <TouchableOpacity onPress={() => pagerRef.current.setPage(1)} style={styles.onboardingButton}>
+          <Text style={styles.onboardingButtonText}>Next</Text>
         </TouchableOpacity>
       </View>
-      <View key="2" style={[styles.page, { backgroundColor: '#07689f' }]}>
-        <Text style={styles.title}>Choose Your Name</Text>
-        <TextInput
-          style={styles.input}
-          onChangeText={setUsername}
-          value={username}
-          placeholder="Enter your username"
-        />
-        <TouchableOpacity onPress={() => pagerRef.current.setPage(2)} style={styles.button}>
-          <Text style={styles.buttonText}>Save</Text>
-        </TouchableOpacity>
-      </View>
-      <View key="3" style={[styles.page, { backgroundColor: '#eb8f8f' }]}>
-        <Text style={styles.title}>smt idk anymore</Text>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View key="2" style={styles.onboardingPage}>
+          <Text style={styles.onboardingTitle}>Choose Your Name</Text>
+          <TextInput
+            style={styles.onboardingInput}
+            onChangeText={setUsername}
+            value={username}
+            placeholder="Enter your username"
+            placeholderTextColor="#CCCCCC"
+          />
+          <TouchableOpacity onPress={() => pagerRef.current.setPage(2)} style={styles.onboardingButton}>
+            <Text style={styles.onboardingButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+      <View key="3" style={styles.onboardingPage}>
+        <Text style={styles.onboardingTitle}>Let's Get Started</Text>
         <FontAwesome6 name="globe" size={100} color="white" />
-        <TouchableOpacity onPress={finishSetup} style={styles.button}>
-          <Text style={styles.buttonText}>Finish Setup</Text>
+        <TouchableOpacity onPress={finishSetup} style={styles.onboardingButton}>
+          <Text style={styles.onboardingButtonText}>Finish Setup</Text>
         </TouchableOpacity>
       </View>
     </ViewPager>
@@ -437,7 +440,7 @@ const MapScreen = ({ searchBarRef }) => {
     const timeAgo = user.timestamp ? formatTimeAgo(user.timestamp) : 'Unknown';
 
     return (
-      <Callout onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleCalloutPress(user);}} >
+      <Callout onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleCalloutPress(user); }} >
         <View style={[styles.card]}>
           <Avatar
             size={25}
@@ -777,7 +780,7 @@ const FriendsScreen = ({ navigation, focusSearchBar }) => {
   const pendingRequests = Object.entries(users).filter(([id, user]) => user.requests && user.requests[currentUserId]);
 
   return (
-    <View style={styles.friendsContainer}>
+    <View style={styles.friendsPage}>
       <Header />
       <View style={styles.friendsHeader}>
         <Text style={styles.friendsTitle}>Friends</Text>
@@ -796,7 +799,7 @@ const FriendsScreen = ({ navigation, focusSearchBar }) => {
           onPress={() => {
             navigation.navigate('Map');
             // setTimeout(() => {
-              focusSearchBar();
+            focusSearchBar();
             // }, 500);
           }}
         />
@@ -836,9 +839,9 @@ const FriendsScreen = ({ navigation, focusSearchBar }) => {
                   color: 'white',
                   size: 20,
                 }}
-                onPress={() => { 
-                  setDialogUser(friend); 
-                  setDialogVisible(true); 
+                onPress={() => {
+                  setDialogUser(friend);
+                  setDialogVisible(true);
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               />
@@ -855,7 +858,7 @@ const FriendsScreen = ({ navigation, focusSearchBar }) => {
                 sytles={styles.friendsList}
                 containerStyle={styles.friendsListContainer}
                 bottomDivider
-                // onPress={() => console.log('Pending request user pressed')}
+              // onPress={() => console.log('Pending request user pressed')}
               >
                 <UserAvatarMarker user={user} size={30} color="gray" />
                 <ListItem.Content>
@@ -886,42 +889,92 @@ const FriendsScreen = ({ navigation, focusSearchBar }) => {
 };
 
 const YouScreen = () => {
-  const { currentUserId, currentUserName, setCurrentUserName, updateUser } = useUsers();
+  const { currentUserId, currentUserName, users, setCurrentUserName, updateUser } = useUsers();
+  const [name, setName] = useState(currentUserName);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  useEffect(() => {
+    setName(currentUserName);
+  }, [currentUserName]);
 
   const handleNameChange = (text) => {
-    setCurrentUserName(text);
-  };
-
-  const handleNameSubmit = async () => {
-    if (currentUserId) {
-      updateUser(currentUserId, { name: currentUserName.trim() });
-      await AsyncStorage.setItem('userName', currentUserName.trim());
+    if (text.length <= 20) {
+      setName(text);
+      setHasUnsavedChanges(text !== currentUserName);
     }
   };
 
+  const handleSave = async () => {
+    if (currentUserId && name.trim()) {
+      updateUser(currentUserId, { name: name.trim() });
+      await AsyncStorage.setItem('userName', name.trim());
+      setCurrentUserName(name.trim());
+      setHasUnsavedChanges(false);
+      Keyboard.dismiss();
+    }
+  };
+
+  const handleCancel = () => {
+    setName(currentUserName);
+    setHasUnsavedChanges(false);
+  };
+
+  const numberOfFriends = users[currentUserId]?.friends ? Object.keys(users[currentUserId].friends).length : 0;
+
   return (
-    <View style={styles.settingsContainer}>
+    <View style={styles.youPage}>
       <Header />
-      <Text style={styles.settingsTitle}>Your Profile</Text>
-      <TextInput
-        style={styles.nameInput}
-        value={currentUserName}
-        onChangeText={handleNameChange}
-        placeholder="Enter your name"
-        placeholderTextColor="#CCCCCC"
-        onSubmitEditing={handleNameSubmit}
-      />
-      <TouchableOpacity onPress={handleNameSubmit} style={styles.saveButton}>
-        <Text style={styles.saveButtonText}>Save</Text>
-      </TouchableOpacity>
-      <Text style={styles.uuidText}>Your UUID: {currentUserId}</Text>
-      <TouchableOpacity onPress={async () => {
-        await AsyncStorage.clear();
-        setCurrentUserName('');
-        setCurrentUserId('');
-      }} style={styles.deleteButton}>
-        <Text style={styles.deleteButtonText}>Delete All Data</Text>
-      </TouchableOpacity>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.youHeader}>
+            <Text style={styles.youTitle}>My profile</Text>
+          </View>
+          <ScrollView contentContainerStyle={styles.youContainer}>
+            <View style={styles.profileCard}>
+              <Avatar
+                size="large"
+                rounded
+                title={currentUserName.substring(0, 2).toUpperCase()}
+                containerStyle={styles.profileAvatar}
+              />
+              <Text style={styles.profileName}>{currentUserName}</Text>
+              <Text style={styles.profileFriends}>{numberOfFriends} friends</Text>
+            </View>
+            <Text style={styles.nameInputText}>Name:</Text>
+            <TextInput
+              style={styles.nameInput}
+              value={name}
+              onChangeText={handleNameChange}
+              placeholder="Enter your name"
+              placeholderTextColor="#CCCCCC"
+              maxLength={20}
+            />
+            {hasUnsavedChanges && (
+              <View style={styles.unsavedChangesContainer}>
+                <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
+                  <Text style={styles.saveButtonText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <View style={styles.hiddenSection}>
+              <Text style={styles.uuidText}>Your UUID: {currentUserId}</Text>
+              <TouchableOpacity
+                onPress={async () => {
+                  await AsyncStorage.clear();
+                  setCurrentUserName('');
+                  setCurrentUserId('');
+                }}
+                style={styles.deleteButton}
+              >
+                <Text style={styles.deleteButtonText}>Delete Account</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </View>
   );
 };
