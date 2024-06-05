@@ -120,6 +120,9 @@ const UserAvatarMarker = ({ user, size, color }) => {
 
 // Haversine formula
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) {
+    return Infinity; // or some default value
+  }
   const R = 6371;
   const dLat = deg2rad(lat2 - lat1);
   const dLon = deg2rad(lon2 - lon1);
@@ -216,6 +219,7 @@ const UserDialog = ({ isVisible, onClose, user }) => {
     } else {
       await toggleFriendRequest(user.id);
     }
+    // close on Friend page, not on Map page
     onClose();
   };
 
@@ -228,8 +232,12 @@ const UserDialog = ({ isVisible, onClose, user }) => {
   };
 
   const handleSetDirections = () => {
-    const url = `http://maps.google.com/?q=${user.location.latitude},${user.location.longitude}`;
-    Linking.openURL(url);
+    if (user.location) {
+      const url = `http://maps.google.com/?q=${user.location.latitude},${user.location.longitude}`;
+      Linking.openURL(url);
+    } else {
+      console.log("User location is not available.");
+    }
   };
 
   const removeFriend = async (friendId) => {
@@ -320,12 +328,11 @@ const UserDialog = ({ isVisible, onClose, user }) => {
   );
 };
 
-const MapScreen = () => {
+const MapScreen = ({ searchBarRef }) => {
   const mapRef = useRef(null);
   const [location, setLocation] = useState(null);
   const [initialRegionSet, setInitialRegionSet] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const searchBarRef = useRef(null);
   const [searchActive, setSearchActive] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
   const [dialogVisible, setDialogVisible] = useState(false);
@@ -342,8 +349,8 @@ const MapScreen = () => {
         distance: location ? getDistanceFromLatLonInKm(
           location.latitude,
           location.longitude,
-          user.location.latitude,
-          user.location.longitude
+          user.location?.latitude,
+          user.location?.longitude
         ) : Infinity,
       }))
       .filter(user => user.id !== currentUserId && user.name.toLowerCase().includes(query))
@@ -408,13 +415,18 @@ const MapScreen = () => {
   };
 
   const handleCalloutPress = (user) => {
+    console.log('Callout pressed:', user.name);
     setDialogUser(user);
     setDialogVisible(true);
   };
 
   const renderCalloutContent = (user) => {
+    if (!user || !user.location) {
+      return null;
+    }
+
     const isCurrentUser = user.id === currentUserId;
-    const distance = location
+    const distance = location && user.location
       ? getDistanceFromLatLonInKm(
         location.latitude,
         location.longitude,
@@ -422,10 +434,10 @@ const MapScreen = () => {
         user.location.longitude
       ).toFixed(2)
       : 'Unknown';
-    const timeAgo = formatTimeAgo(user.timestamp);
+    const timeAgo = user.timestamp ? formatTimeAgo(user.timestamp) : 'Unknown';
 
     return (
-      <Callout onPress={() => handleCalloutPress(user)} >
+      <Callout onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleCalloutPress(user);}} >
         <View style={[styles.card]}>
           <Avatar
             size={25}
@@ -505,7 +517,7 @@ const MapScreen = () => {
     setSearchQuery('');
     setSearchActive(false);
     Keyboard.dismiss();
-    if (mapRef.current) {
+    if (mapRef.current && location) {
       mapRef.current.animateToRegion({
         latitude: location.latitude,
         longitude: location.longitude,
@@ -634,7 +646,7 @@ const MapScreen = () => {
                 <UserAvatarMarker user={{ name: currentUserName }} color="#00ADB5" />
               </Marker.Animated>
             )}
-            {Object.entries(users).filter(([id]) => id !== currentUserId).map(([id, user]) => (
+            {Object.entries(users).filter(([id, user]) => id !== currentUserId && user && user.location).map(([id, user]) => (
               <Marker.Animated
                 key={id}
                 coordinate={new AnimatedRegion({
@@ -674,8 +686,10 @@ const MapScreen = () => {
   );
 };
 
-const FriendsScreen = () => {
+const FriendsScreen = ({ navigation, focusSearchBar }) => {
   const { users, currentUserId, updateUser } = useUsers();
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [dialogUser, setDialogUser] = useState(null);
 
   const acceptFriendRequest = async (friendId) => {
     const currentUserRef = ref(database, `users/${currentUserId}`);
@@ -717,8 +731,6 @@ const FriendsScreen = () => {
     <View style={styles.friendRequestCard}>
       <View style={styles.friendRequestHeader}>
         <Icon
-          // name="bell-o"
-          // type="font-awesome"
           name="bell-ring-outline"
           type="material-community"
           color="white"
@@ -772,17 +784,21 @@ const FriendsScreen = () => {
         <Button
           type="outline"
           icon={{
-            // name: 'plus',
-            // type: 'font-awesome',
             name: 'user-plus',
             type: 'feather',
-            size: 20, // 15
+            size: 20,
             color: '#00ADB5',
           }}
           title="Add friend"
           buttonStyle={styles.addFriendButton}
           titleStyle={{ color: 'white' }}
-          onPress={() => { console.log('Add friend button pressed:', currentUserId); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
+          // onPress={() => { console.log('Add friend button pressed:', currentUserId); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
+          onPress={() => {
+            navigation.navigate('Map');
+            // setTimeout(() => {
+              focusSearchBar();
+            // }, 500);
+          }}
         />
       </View>
       <ScrollView style={styles.friendPageContainer}>
@@ -820,7 +836,11 @@ const FriendsScreen = () => {
                   color: 'white',
                   size: 20,
                 }}
-                onPress={() => { console.log('Friend options pressed'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
+                onPress={() => { 
+                  setDialogUser(friend); 
+                  setDialogVisible(true); 
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
               />
             </ListItem>
           ))
@@ -835,27 +855,32 @@ const FriendsScreen = () => {
                 sytles={styles.friendsList}
                 containerStyle={styles.friendsListContainer}
                 bottomDivider
-                onPress={() => console.log('Pending request user pressed')}
+                // onPress={() => console.log('Pending request user pressed')}
               >
                 <UserAvatarMarker user={user} size={30} color="gray" />
                 <ListItem.Content>
                   <ListItem.Title style={styles.friendsPendingListText}>{user.name}</ListItem.Title>
                 </ListItem.Content>
-              <Button
-                type="clear"
-                icon={{
-                  name: 'closecircleo',
-                  type: 'antdesign',
-                  color: 'gray',
-                  size: 25,
-                }}
-                onPress={() => { cancelPendingRequest(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
-              />
+                <Button
+                  type="clear"
+                  icon={{
+                    name: 'closecircleo',
+                    type: 'antdesign',
+                    color: 'gray',
+                    size: 25,
+                  }}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); cancelPendingRequest(id); }}
+                />
               </ListItem>
             ))}
           </>
         )}
       </ScrollView>
+      <UserDialog
+        isVisible={dialogVisible}
+        onClose={() => setDialogVisible(false)}
+        user={dialogUser}
+      />
     </View>
   );
 };
@@ -904,6 +929,13 @@ const YouScreen = () => {
 const App = () => {
   const [showOnboarding, setShowOnboarding] = useState(null);
   const { currentUserName, currentUserId, setCurrentUserName, setCurrentUserId } = useUsers();
+  const searchBarRef = useRef(null);
+
+  const focusSearchBar = () => {
+    if (searchBarRef.current) {
+      searchBarRef.current.focus();
+    }
+  };
 
   useEffect(() => {
     const checkUserData = async () => {
@@ -947,22 +979,24 @@ const App = () => {
       >
         <Tab.Screen
           name="Map"
-          component={MapScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
               <FontAwesome6 name="earth-americas" size={size} color={color} />
             ),
           }}
-        />
+        >
+          {(props) => <MapScreen {...props} searchBarRef={searchBarRef} />}
+        </Tab.Screen>
         <Tab.Screen
           name="Friends"
-          component={FriendsScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
               <FontAwesome6 name="users" size={size} color={color} />
             ),
           }}
-        />
+        >
+          {(props) => <FriendsScreen {...props} focusSearchBar={focusSearchBar} />}
+        </Tab.Screen>
         <Tab.Screen
           name="You"
           component={YouScreen}
