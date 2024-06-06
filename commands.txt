@@ -3,7 +3,7 @@ eas build:run -p android
 
 eas build:configure
 
-eas build --platform android -t apk
+eas build --platform android --profile preview
 eas build --platform ios
 eas build --platform all
 

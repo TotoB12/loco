@@ -14,6 +14,8 @@ import ViewPager from '@react-native-community/viewpager';
 import * as Linking from 'expo-linking';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import * as TaskManager from 'expo-task-manager';
+import * as BackgroundFetch from 'expo-background-fetch';
 import { generateUsername } from './generateUsername';
 import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
@@ -22,6 +24,49 @@ const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
 const UsersContext = createContext();
+
+const LOCATION_TASK_NAME = 'background-location-task';
+
+TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
+  if (error) {
+    console.error(error);
+    return;
+  }
+  if (data) {
+    const { locations } = data;
+    if (locations && locations.length > 0) {
+      const { latitude, longitude } = locations[0].coords;
+      const userId = await AsyncStorage.getItem('userId');
+      const userName = await AsyncStorage.getItem('userName');
+      if (userId && userName) {
+        const userRef = ref(database, `users/${userId}`);
+        await update(userRef, {
+          location: { latitude, longitude },
+          timestamp: Date.now(),
+        });
+      }
+    }
+  }
+});
+
+const startBackgroundLocationUpdates = async () => {
+  const { status } = await Location.requestBackgroundPermissionsAsync();
+  if (status === 'granted') {
+    await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+      accuracy: Location.Accuracy.High,
+      distanceInterval: 1,
+      deferredUpdatesInterval: 1000,
+      showsBackgroundLocationIndicator: true,
+    });
+    await BackgroundFetch.registerTaskAsync(LOCATION_TASK_NAME, {
+      minimumInterval: 60 * 1, // 15 minutes
+      stopOnTerminate: false,
+      startOnBoot: true,
+    });
+  } else {
+    console.error('Permission to access background location was denied');
+  }
+};
 
 const useUsers = () => {
   const context = useContext(UsersContext);
@@ -339,7 +384,6 @@ const MapScreen = ({ searchBarRef }) => {
   const [initialRegionSet, setInitialRegionSet] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchActive, setSearchActive] = useState(false);
-  const [isTracking, setIsTracking] = useState(false);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogUser, setDialogUser] = useState(null);
   const [filter, setFilter] = useState('All');
@@ -385,11 +429,11 @@ const MapScreen = ({ searchBarRef }) => {
 
         Location.watchPositionAsync({
           accuracy: Location.Accuracy.High,
-          distanceInterval: 10,
+          distanceInterval: 1,
         }, (newLocation) => {
           setLocation(newLocation.coords);
           updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
-          if (isTracking && mapRef.current) {
+          if (mapRef.current) {
             mapRef.current.animateToRegion({
               latitude: newLocation.coords.latitude,
               longitude: newLocation.coords.longitude,
@@ -675,9 +719,6 @@ const MapScreen = ({ searchBarRef }) => {
               }
             }}
             onRegionChange={() => {
-              if (isTracking) {
-                setIsTracking(false);
-              }
             }}
             customMapStyle={customMapStyle}
           >
@@ -721,14 +762,14 @@ const MapScreen = ({ searchBarRef }) => {
             }
           </MapView>
           <Button
-            buttonStyle={[styles.recenterButton, isTracking ? styles.trackingButton : null]}
+            buttonStyle={[styles.recenterButton, null]}
             containerStyle={styles.recenterButtonContainer}
             icon={
               <Icon
                 name="location-arrow"
                 type="font-awesome"
                 size={25}
-                color={isTracking ? '#FFF' : '#00ADB5'}
+                color={'#00ADB5'}
               />
             }
             onPress={() => recenterMap()}
@@ -1088,6 +1129,7 @@ const App = () => {
         } else {
           setShowOnboarding(true);
         }
+        await startBackgroundLocationUpdates(); // Start background location updates
       } catch (error) {
         console.error('Error fetching user data:', error);
       }

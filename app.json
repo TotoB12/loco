@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "loco",
+    "name": "Loco",
     "slug": "loco",
-    "version": "0.0.3",
+    "version": "0.0.7",
     "jsEngine": "hermes",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.jpg",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#212832"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -30,7 +30,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#212832"
       },
       "package": "com.antoninbeliard.loco",
       "config": {
