@@ -13,6 +13,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import ViewPager from '@react-native-community/viewpager';
 import * as Linking from 'expo-linking';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { generateUsername } from './generateUsername';
 import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
@@ -232,6 +233,7 @@ const UserDialog = ({ isVisible, onClose, user }) => {
 
   const handleCopyCoordinates = () => {
     console.log("Copy coordinates pressed");
+    Clipboard.setStringAsync(`${user.location.latitude}, ${user.location.longitude}`);
   };
 
   const handleSetDirections = () => {
@@ -655,11 +657,22 @@ const MapScreen = ({ searchBarRef }) => {
             ref={mapRef}
             provider={PROVIDER_GOOGLE}
             style={styles.map}
-            initialRegion={{
-              latitude: location?.latitude || 0,
-              longitude: location?.longitude || 0,
+            initialRegion={location ? {
+              latitude: location.latitude,
+              longitude: location.longitude,
               latitudeDelta: 0.0922,
               longitudeDelta: 0.0421,
+            } : undefined}
+            onMapReady={() => {
+              if (location && !initialRegionSet) {
+                setInitialRegionSet(true);
+                mapRef.current.animateToRegion({
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  latitudeDelta: 0.0922,
+                  longitudeDelta: 0.0421,
+                }, 500);
+              }
             }}
             onRegionChange={() => {
               if (isTracking) {
@@ -968,8 +981,18 @@ const YouScreen = () => {
     if (currentUserId) {
       try {
         const userRef = ref(database, `users/${currentUserId}`);
+  
+        for (let [userId, user] of Object.entries(users)) {
+          if (userId === currentUserId) continue;
+  
+          const userFriendsRef = ref(database, `users/${userId}/friends/${currentUserId}`);
+          const userRequestsRef = ref(database, `users/${userId}/requests/${currentUserId}`);
+          await remove(userFriendsRef);
+          await remove(userRequestsRef);
+        }
+  
         await remove(userRef);
-
+  
         await AsyncStorage.clear();
         setCurrentUserName('');
         setCurrentUserId('');
@@ -977,7 +1000,7 @@ const YouScreen = () => {
         console.error('Error deleting account:', error);
       }
     }
-  };
+  };  
 
   const numberOfFriends = users[currentUserId]?.friends ? Object.keys(users[currentUserId].friends).length : 0;
 

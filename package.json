@@ -38,7 +38,8 @@
     "react-native-screens": "^3.31.1",
     "react-native-web": "~0.19.11",
     "socket.io-client": "^4.7.5",
-    "expo-haptics": "~13.0.1"
+    "expo-haptics": "~13.0.1",
+    "expo-clipboard": "~6.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.24.5"
