@@ -340,6 +340,7 @@ const MapScreen = ({ searchBarRef }) => {
   const [isTracking, setIsTracking] = useState(false);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogUser, setDialogUser] = useState(null);
+  const [filter, setFilter] = useState('All');
 
   const { users, currentUserId, currentUserName, updateUser } = useUsers();
 
@@ -358,7 +359,7 @@ const MapScreen = ({ searchBarRef }) => {
       }))
       .filter(user => user.id !== currentUserId && user.name.toLowerCase().includes(query))
       .sort((a, b) => a.distance - b.distance);
-  }, [users, location, currentUserId, searchQuery]);
+  }, [users, location, currentUserId, searchQuery, filter]);
 
   useEffect(() => {
     const initLocationTracking = async () => {
@@ -409,12 +410,12 @@ const MapScreen = ({ searchBarRef }) => {
 
   const handleMapAllPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('All was pressed!');
+    setFilter('All');
   };
 
   const handleMapFriendsPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Friends was pressed!');
+    setFilter(filter === 'Friends' ? 'All' : 'Friends');
   };
 
   const handleCalloutPress = (user) => {
@@ -516,10 +517,13 @@ const MapScreen = ({ searchBarRef }) => {
     }
   };
 
-  const zoomToUserLocation = (location) => {
+  const zoomToUserLocation = (location, isFriend) => {
     setSearchQuery('');
     setSearchActive(false);
     Keyboard.dismiss();
+    if (!isFriend) {
+      setFilter('All');
+    }
     if (mapRef.current && location) {
       mapRef.current.animateToRegion({
         latitude: location.latitude,
@@ -530,13 +534,20 @@ const MapScreen = ({ searchBarRef }) => {
     }
   };
 
-  if (!initialRegionSet) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#00ADB5" />
-      </View>
-    );
-  }
+  const closeSearch = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    searchBarRef.current.blur();
+    setSearchActive(false);
+    setSearchQuery('');
+  };
+
+  // if (!initialRegionSet) {
+  //   return (
+  //     <View style={styles.loaderContainer}>
+  //       <ActivityIndicator size="large" color="#00ADB5" />
+  //     </View>
+  //   );
+  // }
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -544,6 +555,20 @@ const MapScreen = ({ searchBarRef }) => {
         <View style={{ flex: 1 }}>
           <Header />
           <View style={styles.filterContainer}>
+            {searchActive && (
+              <Button
+                type="solid"
+                icon={{
+                  name: 'chevron-left',
+                  type: 'font-awesome',
+                  size: 20,
+                  color: 'black',
+                }}
+                onPress={closeSearch}
+                buttonStyle={styles.closeButtonStyle}
+                containerStyle={styles.closeButtonContainer}
+              />
+            )}
             <SearchBar
               platform="default"
               placeholder="Search for users..."
@@ -551,7 +576,10 @@ const MapScreen = ({ searchBarRef }) => {
               value={searchQuery}
               onFocus={() => { setSearchActive(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
               ref={searchBarRef}
-              containerStyle={styles.searchContainerStyle}
+              containerStyle={[
+                styles.searchContainerStyle,
+                { marginLeft: searchActive ? 60 : 0, flex: searchActive ? 1 : 0 },
+              ]}
               inputContainerStyle={styles.searchInputContainerStyle}
               inputStyle={styles.searchInputStyle}
               round
@@ -568,7 +596,7 @@ const MapScreen = ({ searchBarRef }) => {
                 onPress={handleMapAllPress}
                 type="solid"
                 containerStyle={styles.chipContainerStyle}
-                buttonStyle={styles.chipStyle}
+                buttonStyle={[styles.chipStyle, filter === 'All' && styles.selectedChipStyle]}
               />
               <Chip
                 title="Friends"
@@ -581,40 +609,46 @@ const MapScreen = ({ searchBarRef }) => {
                 onPress={handleMapFriendsPress}
                 type="solid"
                 containerStyle={styles.chipContainerStyle}
-                buttonStyle={styles.chipStyle}
+                buttonStyle={[styles.chipStyle, filter === 'Friends' && styles.selectedChipStyle]}
               />
             </View>
           </View>
           {(searchActive || searchQuery) && (
             <View style={styles.searchResultsContainer}>
-              <ScrollView keyboardShouldPersistTaps='handled'>
-                {sortedUsers.map((user) => {
-                  const isFriend = users[currentUserId]?.friends?.[user.id];
-                  return (
-                    <ListItem
-                      key={user.id}
-                      bottomDivider
-                      onPress={() => zoomToUserLocation(user.location)}
-                    >
-                      <UserAvatarMarker user={user} size={30} color="#00ADB5" />
-                      <ListItem.Content>
-                        <ListItem.Title>{user.name}</ListItem.Title>
-                        <ListItem.Subtitle>{user.distance.toFixed(2)} km away</ListItem.Subtitle>
-                      </ListItem.Content>
-                      <Button
-                        type="clear"
-                        icon={{
-                          name: isFriend ? 'user-times' : user.requests && user.requests[currentUserId] ? 'check' : 'user-plus',
-                          type: 'font-awesome',
-                          size: 25,
-                          color: isFriend ? 'red' : user.requests && user.requests[currentUserId] ? 'green' : '#222831',
-                        }}
-                        onPress={() => isFriend ? removeFriend(user.id) : toggleFriendRequest(user.id)}
-                      />
-                    </ListItem>
-                  );
-                })}
-              </ScrollView>
+              {sortedUsers.length === 0 ? (
+                <View style={styles.noUserFoundContainer}>
+                  <Text style={styles.noUserFoundText}>No user found</Text>
+                </View>
+              ) : (
+                <ScrollView keyboardShouldPersistTaps='handled'>
+                  {sortedUsers.map((user) => {
+                    const isFriend = users[currentUserId]?.friends?.[user.id];
+                    return (
+                      <ListItem
+                        key={user.id}
+                        bottomDivider
+                        onPress={() => zoomToUserLocation(user.location, isFriend)}
+                      >
+                        <UserAvatarMarker user={user} size={30} color="#00ADB5" />
+                        <ListItem.Content>
+                          <ListItem.Title>{user.name}</ListItem.Title>
+                          <ListItem.Subtitle>{user.distance.toFixed(2)} km away</ListItem.Subtitle>
+                        </ListItem.Content>
+                        <Button
+                          type="clear"
+                          icon={{
+                            name: isFriend ? 'user-times' : user.requests && user.requests[currentUserId] ? 'check' : 'user-plus',
+                            type: 'font-awesome',
+                            size: 25,
+                            color: isFriend ? 'red' : user.requests && user.requests[currentUserId] ? 'green' : '#222831',
+                          }}
+                          onPress={() => isFriend ? removeFriend(user.id) : toggleFriendRequest(user.id)}
+                        />
+                      </ListItem>
+                    );
+                  })}
+                </ScrollView>
+              )}
             </View>
           )}
           <MapView
@@ -649,21 +683,29 @@ const MapScreen = ({ searchBarRef }) => {
                 <UserAvatarMarker user={{ name: currentUserName }} color="#00ADB5" />
               </Marker.Animated>
             )}
-            {Object.entries(users).filter(([id, user]) => id !== currentUserId && user && user.location).map(([id, user]) => (
-              <Marker.Animated
-                key={id}
-                coordinate={new AnimatedRegion({
-                  latitude: user.location.latitude,
-                  longitude: user.location.longitude,
-                  latitudeDelta: 0.0922,
-                  longitudeDelta: 0.0421,
-                })}
-                title={user.name || 'Anonymous'}
-              >
-                {renderCalloutContent(user)}
-                <UserAvatarMarker user={user} />
-              </Marker.Animated>
-            ))}
+            {Object.entries(users)
+              .filter(([id, user]) =>
+                id !== currentUserId &&
+                user &&
+                user.location &&
+                (filter === 'All' || (filter === 'Friends' && users[currentUserId]?.friends?.[id]))
+              )
+              .map(([id, user]) => (
+                <Marker.Animated
+                  key={id}
+                  coordinate={new AnimatedRegion({
+                    latitude: user.location.latitude,
+                    longitude: user.location.longitude,
+                    latitudeDelta: 0.0922,
+                    longitudeDelta: 0.0421,
+                  })}
+                  title={user.name || 'Anonymous'}
+                >
+                  {renderCalloutContent(user)}
+                  <UserAvatarMarker user={user} />
+                </Marker.Animated>
+              ))
+            }
           </MapView>
           <Button
             buttonStyle={[styles.recenterButton, isTracking ? styles.trackingButton : null]}
@@ -889,7 +931,7 @@ const FriendsScreen = ({ navigation, focusSearchBar }) => {
 };
 
 const YouScreen = () => {
-  const { currentUserId, currentUserName, users, setCurrentUserName, updateUser } = useUsers();
+  const { currentUserId, currentUserName, users, setCurrentUserName, setCurrentUserId, updateUser } = useUsers();
   const [name, setName] = useState(currentUserName);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -905,6 +947,7 @@ const YouScreen = () => {
   };
 
   const handleSave = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (currentUserId && name.trim()) {
       updateUser(currentUserId, { name: name.trim() });
       await AsyncStorage.setItem('userName', name.trim());
@@ -915,8 +958,25 @@ const YouScreen = () => {
   };
 
   const handleCancel = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setName(currentUserName);
     setHasUnsavedChanges(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    if (currentUserId) {
+      try {
+        const userRef = ref(database, `users/${currentUserId}`);
+        await remove(userRef);
+
+        await AsyncStorage.clear();
+        setCurrentUserName('');
+        setCurrentUserId('');
+      } catch (error) {
+        console.error('Error deleting account:', error);
+      }
+    }
   };
 
   const numberOfFriends = users[currentUserId]?.friends ? Object.keys(users[currentUserId].friends).length : 0;
@@ -938,7 +998,12 @@ const YouScreen = () => {
                 containerStyle={styles.profileAvatar}
               />
               <Text style={styles.profileName}>{currentUserName}</Text>
-              <Text style={styles.profileFriends}>{numberOfFriends} friends</Text>
+              <View style={styles.profileFriendsContainer}>
+                <FontAwesome6 name="users" size={15} color="gray" />
+                <Text style={styles.profileFriends}>
+                  {numberOfFriends > 0 ? `${numberOfFriends} friend${numberOfFriends > 1 ? 's' : ''}` : 'lonely'}
+                </Text>
+              </View>
             </View>
             <Text style={styles.nameInputText}>Name:</Text>
             <TextInput
@@ -960,13 +1025,11 @@ const YouScreen = () => {
               </View>
             )}
             <View style={styles.hiddenSection}>
+              <Text style={styles.uuidText}>ONLY TOUCH THIS IF YOU</Text>
+              <Text style={styles.uuidText}>KNOW WHAT YOU ARE DOING</Text>
               <Text style={styles.uuidText}>Your UUID: {currentUserId}</Text>
               <TouchableOpacity
-                onPress={async () => {
-                  await AsyncStorage.clear();
-                  setCurrentUserName('');
-                  setCurrentUserId('');
-                }}
+                onPress={handleDeleteAccount}
                 style={styles.deleteButton}
               >
                 <Text style={styles.deleteButtonText}>Delete Account</Text>

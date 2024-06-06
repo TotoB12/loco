@@ -205,17 +205,6 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
     color: '#EEEEEE',
   },
-  nameInput: {
-    height: 40,
-    width: '80%',
-    borderWidth: 1,
-    borderColor: '#00ADB5',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    marginBottom: 16,
-    color: '#EEEEEE',
-    backgroundColor: '#393E46',
-  },
   // bottomNavBar: {
   //   flexDirection: 'row',
   //   justifyContent: 'space-around',
@@ -264,32 +253,38 @@ export const styles = StyleSheet.create({
     borderRadius: 15,
   },
   filterContainer: {
-    // flexDirection: 'row',
+    flexDirection: 'row',
+    alignItems: 'center', // Added to align items horizontally
     position: 'absolute',
     zIndex: 9999,
     top: 10,
     width: '100%',
+  },
+  closeButtonStyle: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    height: 50,
+    width: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonContainer: {
+    marginLeft: 10,
   },
   searchContainerStyle: {
     marginTop: 50,
     left: 10,
     right: 10,
     height: 50,
-    // width: '100%',
     backgroundColor: '#FFFFFF',
     borderTopColor: '#FFFFFF',
     borderBottomColor: '#FFFFFF',
-    borderRadius: 17,
+    borderRadius: 12,
     position: 'absolute',
-
   },
   searchInputContainerStyle: {
-    // position: 'absolute',
-    // top: -10,
-    // width: '100%',
     height: '100%',
     backgroundColor: '#FFFFFF',
-    // borderRadius: 50,
   },
   searchInputStyle: {
     fontSize: 16,
@@ -302,7 +297,16 @@ export const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 99999,
     backgroundColor: 'white'
-  },  
+  },
+  noUserFoundContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noUserFoundText: {
+    fontSize: 20,
+    color: 'gray',
+  },
   chipsContainer: {
     flexDirection: 'row',
     // justifyContent: 'center',
@@ -318,6 +322,9 @@ export const styles = StyleSheet.create({
     height: 36,
     backgroundColor: '#FFFFFF',
     // color: '#222831',
+  },
+  selectedChipStyle: {
+    backgroundColor: '#9d9d9d',
   },
   recenterButton: {
     backgroundColor: '#FFFFFF',
@@ -572,10 +579,10 @@ trackingButton: {
     // padding: 10,
   },
   youContainer: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: '#222831',
     alignItems: 'center',
-    // paddingTop: 20,
+    paddingTop: 20,
     paddingBottom: 100,
   },
   youHeader: {
@@ -606,9 +613,14 @@ trackingButton: {
     fontSize: 27,
     marginBottom: 5,
   },
+  profileFriendsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   profileFriends: {
     color: 'gray',
     fontSize: 16,
+    marginLeft: 5,
   },
   nameInputText: {
     color: '#EEEEEE',
