@@ -41,7 +41,8 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
       if (userId && userName) {
         const userRef = ref(database, `users/${userId}`);
         await update(userRef, {
-          location: { latitude, longitude },
+          // location: { latitude, longitude },
+          location: locations[0].coords,
           timestamp: Date.now(),
         });
       }
@@ -54,7 +55,7 @@ const startBackgroundLocationUpdates = async () => {
   if (status === 'granted') {
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
       accuracy: Location.Accuracy.High,
-      distanceInterval: 1,
+      distanceInterval: 10,
       deferredUpdatesInterval: 1000,
       showsBackgroundLocationIndicator: true,
     });
@@ -148,7 +149,7 @@ const Header = () => {
 const UserAvatarMarker = ({ user, size, color }) => {
   const getTwoFirstLetters = (name) => {
     if (!name) {
-      return '';
+      return 'NA';
     }
     return name.substring(0, 2).toUpperCase();
   };
@@ -429,25 +430,34 @@ const MapScreen = ({ searchBarRef }) => {
 
         Location.watchPositionAsync({
           accuracy: Location.Accuracy.High,
-          distanceInterval: 1,
+          distanceInterval: 10,
         }, (newLocation) => {
           setLocation(newLocation.coords);
           updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
-          if (mapRef.current) {
-            mapRef.current.animateToRegion({
-              latitude: newLocation.coords.latitude,
-              longitude: newLocation.coords.longitude,
-              latitudeDelta: 0.0922,
-              longitudeDelta: 0.0421,
-            }, 500);
-          }
+          // if (mapRef.current) {
+          //   mapRef.current.animateToRegion({
+          //     latitude: newLocation.coords.latitude,
+          //     longitude: newLocation.coords.longitude,
+          //     latitudeDelta: 0.0922,
+          //     longitudeDelta: 0.0421,
+          //   }, 500);
+          // }
         }).then((watcher) => {
           return () => watcher.remove();
         });
       }
     };
 
+    const getBackgroundLocationPermission = async () => {
+      let { status } = await Location.requestBackgroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.error('Permission to access background location was denied');
+        return;
+      }
+    };
+
     initLocationTracking();
+    getBackgroundLocationPermission();
   }, [currentUserId, currentUserName]);
 
   const handleSearch = (query) => {
@@ -471,7 +481,7 @@ const MapScreen = ({ searchBarRef }) => {
   };
 
   const renderCalloutContent = (user) => {
-    if (!user || !user.location) {
+    if (!user || !user.location || !user.location.latitude || !user.location.longitude) {
       return null;
     }
 
@@ -722,44 +732,46 @@ const MapScreen = ({ searchBarRef }) => {
             }}
             customMapStyle={customMapStyle}
           >
-            {location && (
-              <Marker.Animated
-                key={currentUserId}
-                coordinate={new AnimatedRegion({
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                  latitudeDelta: 0.0922,
-                  longitudeDelta: 0.0421,
-                })}
-                title="You"
-              >
-                {renderCalloutContent({ id: currentUserId, name: currentUserName, location })}
-                <UserAvatarMarker user={{ name: currentUserName }} color="#00ADB5" />
-              </Marker.Animated>
-            )}
-            {Object.entries(users)
-              .filter(([id, user]) =>
-                id !== currentUserId &&
-                user &&
-                user.location &&
-                (filter === 'All' || (filter === 'Friends' && users[currentUserId]?.friends?.[id]))
-              )
-              .map(([id, user]) => (
-                <Marker.Animated
-                  key={id}
-                  coordinate={new AnimatedRegion({
-                    latitude: user.location.latitude,
-                    longitude: user.location.longitude,
-                    latitudeDelta: 0.0922,
-                    longitudeDelta: 0.0421,
-                  })}
-                  title={user.name || 'Anonymous'}
-                >
-                  {renderCalloutContent(user)}
-                  <UserAvatarMarker user={user} />
-                </Marker.Animated>
-              ))
-            }
+{location && location.latitude && location.longitude && (
+  <Marker.Animated
+    key={currentUserId}
+    coordinate={new AnimatedRegion({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      latitudeDelta: 0.0922,
+      longitudeDelta: 0.0421,
+    })}
+    title="You"
+  >
+    {renderCalloutContent({ id: currentUserId, name: currentUserName, location })}
+    <UserAvatarMarker user={{ name: currentUserName }} color="#00ADB5" />
+  </Marker.Animated>
+)}
+{Object.entries(users)
+  .filter(([id, user]) =>
+    id !== currentUserId &&
+    user &&
+    user.location &&
+    user.location.latitude &&
+    user.location.longitude &&
+    (filter === 'All' || (filter === 'Friends' && users[currentUserId]?.friends?.[id]))
+  )
+  .map(([id, user]) => (
+    <Marker.Animated
+      key={id}
+      coordinate={new AnimatedRegion({
+        latitude: user.location.latitude,
+        longitude: user.location.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      })}
+      title={user.name || 'Anonymous'}
+    >
+      {renderCalloutContent(user)}
+      <UserAvatarMarker user={user} />
+    </Marker.Animated>
+  ))
+}
           </MapView>
           <Button
             buttonStyle={[styles.recenterButton, null]}
@@ -1022,18 +1034,18 @@ const YouScreen = () => {
     if (currentUserId) {
       try {
         const userRef = ref(database, `users/${currentUserId}`);
-  
+
         for (let [userId, user] of Object.entries(users)) {
           if (userId === currentUserId) continue;
-  
+
           const userFriendsRef = ref(database, `users/${userId}/friends/${currentUserId}`);
           const userRequestsRef = ref(database, `users/${userId}/requests/${currentUserId}`);
           await remove(userFriendsRef);
           await remove(userRequestsRef);
         }
-  
+
         await remove(userRef);
-  
+
         await AsyncStorage.clear();
         setCurrentUserName('');
         setCurrentUserId('');
@@ -1041,7 +1053,7 @@ const YouScreen = () => {
         console.error('Error deleting account:', error);
       }
     }
-  };  
+  };
 
   const numberOfFriends = users[currentUserId]?.friends ? Object.keys(users[currentUserId].friends).length : 0;
 

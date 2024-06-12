@@ -2,7 +2,7 @@
   "expo": {
     "name": "Loco",
     "slug": "loco",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "jsEngine": "hermes",
     "orientation": "portrait",
     "icon": "./assets/icon.jpg",
