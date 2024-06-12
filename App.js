@@ -168,7 +168,7 @@ const UserAvatarMarker = ({ user, size, color }) => {
 // Haversine formula
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
   if (!lat1 || !lon1 || !lat2 || !lon2) {
-    return Infinity; // or some default value
+    return Infinity;
   }
   const R = 6371;
   const dLat = deg2rad(lat2 - lat1);
@@ -410,8 +410,9 @@ const MapScreen = ({ searchBarRef }) => {
 
   useEffect(() => {
     const initLocationTracking = async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      let { status: foreStatus } = await Location.requestForegroundPermissionsAsync();
+      let { status: backStatus } = await Location.requestBackgroundPermissionsAsync();
+      if (foreStatus !== 'granted' || backStatus !== 'granted') {
         console.error('Permission to access location was denied');
         return;
       }
@@ -434,30 +435,13 @@ const MapScreen = ({ searchBarRef }) => {
         }, (newLocation) => {
           setLocation(newLocation.coords);
           updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
-          // if (mapRef.current) {
-          //   mapRef.current.animateToRegion({
-          //     latitude: newLocation.coords.latitude,
-          //     longitude: newLocation.coords.longitude,
-          //     latitudeDelta: 0.0922,
-          //     longitudeDelta: 0.0421,
-          //   }, 500);
-          // }
         }).then((watcher) => {
           return () => watcher.remove();
         });
       }
     };
 
-    const getBackgroundLocationPermission = async () => {
-      let { status } = await Location.requestBackgroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.error('Permission to access background location was denied');
-        return;
-      }
-    };
-
     initLocationTracking();
-    getBackgroundLocationPermission();
   }, [currentUserId, currentUserName]);
 
   const handleSearch = (query) => {
@@ -1141,7 +1125,7 @@ const App = () => {
         } else {
           setShowOnboarding(true);
         }
-        await startBackgroundLocationUpdates(); // Start background location updates
+        await startBackgroundLocationUpdates();
       } catch (error) {
         console.error('Error fetching user data:', error);
       }
