@@ -51,16 +51,18 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
 });
 
 const startBackgroundLocationUpdates = async () => {
-  const { status } = await Location.requestBackgroundPermissionsAsync();
-  if (status === 'granted') {
+  // const { status } = await Location.requestBackgroundPermissionsAsync();
+  const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+  const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+  if (backgroundStatus === 'granted') {
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
       accuracy: Location.Accuracy.High,
-      distanceInterval: 10,
+      distanceInterval: 1,
       deferredUpdatesInterval: 1000,
-      showsBackgroundLocationIndicator: true,
+      showsBackgroundLocationIndicator: false,
     });
     await BackgroundFetch.registerTaskAsync(LOCATION_TASK_NAME, {
-      minimumInterval: 60 * 1, // 15 minutes
+      minimumInterval: 4, // 4 seconds
       stopOnTerminate: false,
       startOnBoot: true,
     });
@@ -158,7 +160,7 @@ const UserAvatarMarker = ({ user, size, color }) => {
     <Avatar
       size={size || 30}
       rounded
-      title={getTwoFirstLetters(user.name)}
+      title={getTwoFirstLetters(user.name || 'NA')}
       containerStyle={{ backgroundColor: color || '#FFFFFF' }}
       titleStyle={{ color: 'black' }}
     />
@@ -431,7 +433,7 @@ const MapScreen = ({ searchBarRef }) => {
 
         Location.watchPositionAsync({
           accuracy: Location.Accuracy.High,
-          distanceInterval: 10,
+          distanceInterval: 1,
         }, (newLocation) => {
           setLocation(newLocation.coords);
           updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
@@ -716,46 +718,46 @@ const MapScreen = ({ searchBarRef }) => {
             }}
             customMapStyle={customMapStyle}
           >
-{location && location.latitude && location.longitude && (
-  <Marker.Animated
-    key={currentUserId}
-    coordinate={new AnimatedRegion({
-      latitude: location.latitude,
-      longitude: location.longitude,
-      latitudeDelta: 0.0922,
-      longitudeDelta: 0.0421,
-    })}
-    title="You"
-  >
-    {renderCalloutContent({ id: currentUserId, name: currentUserName, location })}
-    <UserAvatarMarker user={{ name: currentUserName }} color="#00ADB5" />
-  </Marker.Animated>
-)}
-{Object.entries(users)
-  .filter(([id, user]) =>
-    id !== currentUserId &&
-    user &&
-    user.location &&
-    user.location.latitude &&
-    user.location.longitude &&
-    (filter === 'All' || (filter === 'Friends' && users[currentUserId]?.friends?.[id]))
-  )
-  .map(([id, user]) => (
-    <Marker.Animated
-      key={id}
-      coordinate={new AnimatedRegion({
-        latitude: user.location.latitude,
-        longitude: user.location.longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      })}
-      title={user.name || 'Anonymous'}
-    >
-      {renderCalloutContent(user)}
-      <UserAvatarMarker user={user} />
-    </Marker.Animated>
-  ))
-}
+            {location && location.latitude && location.longitude && (
+              <Marker.Animated
+                key={currentUserId}
+                coordinate={new AnimatedRegion({
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  latitudeDelta: 0.0922,
+                  longitudeDelta: 0.0421,
+                })}
+                title="You"
+              >
+                {renderCalloutContent({ id: currentUserId, name: currentUserName, location })}
+                <UserAvatarMarker user={{ name: currentUserName || 'NA' }} color="#00ADB5" />
+              </Marker.Animated>
+            )}
+            {Object.entries(users)
+              .filter(([id, user]) =>
+                id !== currentUserId &&
+                user &&
+                user.location &&
+                user.location.latitude &&
+                user.location.longitude &&
+                (filter === 'All' || (filter === 'Friends' && users[currentUserId]?.friends?.[id]))
+              )
+              .map(([id, user]) => (
+                <Marker.Animated
+                  key={id}
+                  coordinate={new AnimatedRegion({
+                    latitude: user.location.latitude,
+                    longitude: user.location.longitude,
+                    latitudeDelta: 0.0922,
+                    longitudeDelta: 0.0421,
+                  })}
+                  title={user.name || 'Anonymous'}
+                >
+                  {renderCalloutContent(user)}
+                  <UserAvatarMarker user={{ name: user.name || 'NA' }} />
+                </Marker.Animated>
+              ))
+            }
           </MapView>
           <Button
             buttonStyle={[styles.recenterButton, null]}
