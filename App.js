@@ -587,14 +587,6 @@ const MapScreen = ({ searchBarRef }) => {
     setSearchQuery('');
   };
 
-  // if (!initialRegionSet) {
-  //   return (
-  //     <View style={styles.loaderContainer}>
-  //       <ActivityIndicator size="large" color="#00ADB5" />
-  //     </View>
-  //   );
-  // }
-
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
