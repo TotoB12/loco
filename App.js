@@ -156,6 +156,10 @@ const UserAvatarMarker = ({ user, size, color }) => {
     return name.substring(0, 2).toUpperCase();
   };
 
+  if (!user) {
+    return null;
+  }
+
   return (
     <Avatar
       size={size || 30}
