@@ -56,7 +56,7 @@ const startBackgroundLocationUpdates = async () => {
     console.error('Foreground location permission is required');
     return;
   }
-  
+
   const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
   if (backgroundStatus !== 'granted') {
     console.error('Background location permission is required');
@@ -1139,6 +1139,10 @@ const App = () => {
   }, []);
 
   const handleFinishOnboarding = (username, userId) => {
+    // const userRef = ref(database, `users/${userId}`);
+    // set(userRef, {
+    //   id: userId,
+    // });
     setCurrentUserName(username);
     setCurrentUserId(userId);
     setShowOnboarding(false);
