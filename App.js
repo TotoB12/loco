@@ -51,25 +51,31 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
 });
 
 const startBackgroundLocationUpdates = async () => {
-  // const { status } = await Location.requestBackgroundPermissionsAsync();
   const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-  const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-  if (backgroundStatus === 'granted') {
-    await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-      accuracy: Location.Accuracy.High,
-      distanceInterval: 1,
-      deferredUpdatesInterval: 1000,
-      showsBackgroundLocationIndicator: false,
-    });
-    await BackgroundFetch.registerTaskAsync(LOCATION_TASK_NAME, {
-      minimumInterval: 4, // 4 seconds
-      stopOnTerminate: false,
-      startOnBoot: true,
-    });
-  } else {
-    console.error('Permission to access background location was denied');
+  if (foregroundStatus !== 'granted') {
+    console.error('Foreground location permission is required');
+    return;
   }
+  
+  const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+  if (backgroundStatus !== 'granted') {
+    console.error('Background location permission is required');
+    return;
+  }
+
+  await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+    accuracy: Location.Accuracy.High,
+    distanceInterval: 1,
+    deferredUpdatesInterval: 1000,
+    showsBackgroundLocationIndicator: false,
+  });
+  await BackgroundFetch.registerTaskAsync(LOCATION_TASK_NAME, {
+    minimumInterval: 4, // 4 seconds
+    stopOnTerminate: false,
+    startOnBoot: true,
+  });
 };
+
 
 const useUsers = () => {
   const context = useContext(UsersContext);
