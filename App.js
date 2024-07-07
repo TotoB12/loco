@@ -73,6 +73,11 @@ const startBackgroundLocationUpdates = async () => {
     minimumInterval: 4, // 4 seconds
     stopOnTerminate: false,
     startOnBoot: true,
+    foregroundService: {
+      notificationTitle: 'Background location',
+      notificationBody: 'Background location',
+    },
+    pausesUpdatesAutomatically: false,
   });
 };
 
@@ -173,6 +178,7 @@ const UserAvatarMarker = ({ user, size, color }) => {
       title={getTwoFirstLetters(user.name || 'NA')}
       containerStyle={{ backgroundColor: color || '#FFFFFF' }}
       titleStyle={{ color: 'black' }}
+      source={{ uri: "data:image/png" }}
     />
   );
 };
@@ -430,26 +436,28 @@ const MapScreen = ({ searchBarRef }) => {
       }
 
       let currentLocation = await Location.getCurrentPositionAsync({});
-      setLocation(currentLocation.coords);
-      setInitialRegionSet(true);
+      if (currentLocation && currentLocation.coords) {
+        setLocation(currentLocation.coords);
+        setInitialRegionSet(true);
 
-      if (currentUserId && currentUserName) {
-        const userRef = ref(database, `users/${currentUserId}`);
-        update(userRef, {
-          name: currentUserName,
-          location: currentLocation.coords,
-          timestamp: Date.now(),
-        });
+        if (currentUserId && currentUserName) {
+          const userRef = ref(database, `users/${currentUserId}`);
+          update(userRef, {
+            name: currentUserName,
+            location: currentLocation.coords,
+            timestamp: Date.now(),
+          });
 
-        Location.watchPositionAsync({
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 1,
-        }, (newLocation) => {
-          setLocation(newLocation.coords);
-          updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
-        }).then((watcher) => {
-          return () => watcher.remove();
-        });
+          Location.watchPositionAsync({
+            accuracy: Location.Accuracy.High,
+            distanceInterval: 1,
+          }, (newLocation) => {
+            setLocation(newLocation.coords);
+            updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
+          }).then((watcher) => {
+            return () => watcher.remove();
+          });
+        }
       }
     };
 
@@ -500,6 +508,7 @@ const MapScreen = ({ searchBarRef }) => {
             rounded
             title={user.name.substring(0, 2).toUpperCase()}
             containerStyle={styles.avatar}
+            source={{ uri: "data:image/png" }}
           />
           <View style={styles.info}>
             <Text style={styles.name}>{user.name}</Text>
@@ -714,7 +723,7 @@ const MapScreen = ({ searchBarRef }) => {
                   latitudeDelta: 0.0922,
                   longitudeDelta: 0.0421,
                 }, 500);
-              }
+              };
             }}
             onRegionChange={() => {
             }}
@@ -731,8 +740,8 @@ const MapScreen = ({ searchBarRef }) => {
                 })}
                 title="You"
               >
-                {renderCalloutContent({ id: currentUserId, name: currentUserName, location })}
                 <UserAvatarMarker user={{ name: currentUserName || 'NA' }} color="#00ADB5" />
+                {renderCalloutContent({ id: currentUserId, name: currentUserName, location })}
               </Marker.Animated>
             )}
             {Object.entries(users)
@@ -755,8 +764,8 @@ const MapScreen = ({ searchBarRef }) => {
                   })}
                   title={user.name || 'Anonymous'}
                 >
-                  {renderCalloutContent(user)}
                   <UserAvatarMarker user={{ name: user.name || 'NA' }} />
+                  {renderCalloutContent(user)}
                 </Marker.Animated>
               ))
             }
@@ -1060,6 +1069,7 @@ const YouScreen = () => {
                 rounded
                 title={currentUserName.substring(0, 2).toUpperCase()}
                 containerStyle={styles.profileAvatar}
+                source={{ uri: "data:image/png" }}
               />
               <Text style={styles.profileName}>{currentUserName}</Text>
               <View style={styles.profileFriendsContainer}>
