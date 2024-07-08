@@ -2,7 +2,7 @@
   "expo": {
     "name": "Loco",
     "slug": "loco",
-    "version": "0.0.9",
+    "version": "0.1.0",
     "jsEngine": "hermes",
     "orientation": "portrait",
     "icon": "./assets/icon.jpg",
@@ -39,10 +39,24 @@
         }
       },
       "permissions": [
+        "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE"
-      ]
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "WAKE_LOCK"
+      ],
+      "softwareKeyboardLayoutMode": "pan",
+      "manifest": {
+        "service": [
+          {
+            "android:name": "com.antoninbeliard.loco.LocationService",
+            "android:enabled": "true",
+            "android:exported": "false",
+            "android:foregroundServiceType": "location"
+          }
+        ]
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -56,7 +70,14 @@
     "plugins": [
       "expo-router",
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+        }
+      ],
+      "./configPlugins/withForegroundService.js"
     ]
   }
 }

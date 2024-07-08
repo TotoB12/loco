@@ -15,7 +15,8 @@ import * as Linking from 'expo-linking';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import * as TaskManager from 'expo-task-manager';
-import * as BackgroundFetch from 'expo-background-fetch';
+// import * as BackgroundFetch from 'expo-background-fetch';
+// import * as Notifications from 'expo-notifications';
 import { generateUsername } from './generateUsername';
 import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
@@ -25,7 +26,7 @@ const database = getDatabase(app);
 
 const UsersContext = createContext();
 
-const LOCATION_TASK_NAME = 'background-location-task';
+export const LOCATION_TASK_NAME = 'background-location-task';
 
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   if (error) {
@@ -34,23 +35,22 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   }
   if (data) {
     const { locations } = data;
-    if (locations && locations.length > 0) {
+    const database = getDatabase();
+    const userId = await AsyncStorage.getItem('userId');
+    const userName = await AsyncStorage.getItem('userName');
+    if (userId && userName && locations && locations.length > 0) {
       const { latitude, longitude } = locations[0].coords;
-      const userId = await AsyncStorage.getItem('userId');
-      const userName = await AsyncStorage.getItem('userName');
-      if (userId && userName) {
-        const userRef = ref(database, `users/${userId}`);
-        await update(userRef, {
-          // location: { latitude, longitude },
-          location: locations[0].coords,
-          timestamp: Date.now(),
-        });
-      }
+      const userRef = ref(database, `users/${userId}`);
+      await update(userRef, {
+        location: locations[0].coords,
+        timestamp: Date.now(),
+      });
     }
   }
 });
 
-const startBackgroundLocationUpdates = async () => {
+export const startLocationTracking = async () => {
+  // console.log('Starting location tracking...');
   const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
   if (foregroundStatus !== 'granted') {
     console.error('Foreground location permission is required');
@@ -63,24 +63,23 @@ const startBackgroundLocationUpdates = async () => {
     return;
   }
 
+  console.log('Location permissions granted');
+
   await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
     accuracy: Location.Accuracy.High,
     distanceInterval: 1,
+    timeInterval: 1000,
     deferredUpdatesInterval: 1000,
-    showsBackgroundLocationIndicator: false,
-  });
-  await BackgroundFetch.registerTaskAsync(LOCATION_TASK_NAME, {
-    minimumInterval: 4, // 4 seconds
-    stopOnTerminate: false,
-    startOnBoot: true,
     foregroundService: {
-      notificationTitle: 'Background location',
-      notificationBody: 'Background location',
+      notificationTitle: "Location tracking",
+      notificationBody: "Location tracking is running",
+      notificationColor: "#00ADB5",
     },
     pausesUpdatesAutomatically: false,
+    activityType: Location.ActivityType.Fitness,
+    showsBackgroundLocationIndicator: true,
   });
 };
-
 
 const useUsers = () => {
   const context = useContext(UsersContext);
@@ -443,6 +442,7 @@ const MapScreen = ({ searchBarRef }) => {
         if (currentUserId && currentUserName) {
           const userRef = ref(database, `users/${currentUserId}`);
           update(userRef, {
+            id: currentUserId,
             name: currentUserName,
             location: currentLocation.coords,
             timestamp: Date.now(),
@@ -1136,10 +1136,10 @@ const App = () => {
           setCurrentUserId(storedUserId);
           setCurrentUserName(storedUserName);
           setShowOnboarding(false);
+          await startLocationTracking();
         } else {
           setShowOnboarding(true);
         }
-        await startBackgroundLocationUpdates();
       } catch (error) {
         console.error('Error fetching user data:', error);
       }
