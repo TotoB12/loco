@@ -15,6 +15,7 @@ import * as Linking from 'expo-linking';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import * as TaskManager from 'expo-task-manager';
+import debounce from 'lodash.debounce';
 // import * as BackgroundFetch from 'expo-background-fetch';
 import * as Notifications from 'expo-notifications';
 import { generateUsername } from './generateUsername';
@@ -28,12 +29,20 @@ const UsersContext = createContext();
 
 export const LOCATION_TASK_NAME = 'background-location-task';
 
+const debouncedUpdateUserLocation = debounce(async (userRef, coords) => {
+  await update(userRef, {
+    location: coords,
+    timestamp: Date.now(),
+  });
+}, 4000);
+
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   if (error) {
     console.error(error);
     return;
   }
   if (data) {
+    console.log(`Updating location through background`);
     const { locations } = data;
     const database = getDatabase();
     const userId = await AsyncStorage.getItem('userId');
@@ -41,10 +50,11 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
     if (userId && userName && locations && locations.length > 0) {
       const { latitude, longitude } = locations[0].coords;
       const userRef = ref(database, `users/${userId}`);
-      await update(userRef, {
-        location: locations[0].coords,
-        timestamp: Date.now(),
-      });
+      debouncedUpdateUserLocation(userRef, locations[0].coords)
+      // await update(userRef, {
+      //   location: locations[0].coords,
+      //   timestamp: Date.now(),
+      // });
     }
   }
 });
@@ -66,7 +76,7 @@ export const startLocationTracking = async () => {
 
   await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
     accuracy: Location.Accuracy.High,
-    distanceInterval: 10,
+    distanceInterval: 1,
     timeInterval: 4000,
     // deferredUpdatesInterval: 1000,
     foregroundService: {
@@ -116,6 +126,7 @@ const UsersProvider = ({ children }) => {
 
   const updateUser = (userId, data) => {
     const userRef = ref(database, `users/${userId}`);
+    console.log(`Updating location through foreground`);
     update(userRef, data);
   };
 
