@@ -30,6 +30,7 @@ const UsersContext = createContext();
 export const LOCATION_TASK_NAME = 'background-location-task';
 
 const debouncedUpdateUserLocation = debounce(async (userRef, coords) => {
+  console.log(`Debounced location update`);
   await update(userRef, {
     location: coords,
     timestamp: Date.now(),
@@ -126,7 +127,7 @@ const UsersProvider = ({ children }) => {
 
   const updateUser = (userId, data) => {
     const userRef = ref(database, `users/${userId}`);
-    console.log(`Updating location through foreground`);
+    console.log(data);
     update(userRef, data);
   };
 
@@ -463,7 +464,9 @@ const MapScreen = ({ searchBarRef }) => {
             distanceInterval: 1,
           }, (newLocation) => {
             setLocation(newLocation.coords);
-            updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
+            debouncedUpdateUserLocation(userRef, newLocation.coords);
+            console.log(`Updating location through foreground`);
+            // updateUser(currentUserId, { location: newLocation.coords, timestamp: Date.now() });
           }).then((watcher) => {
             return () => watcher.remove();
           });
