@@ -16,7 +16,7 @@ import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import * as TaskManager from 'expo-task-manager';
 // import * as BackgroundFetch from 'expo-background-fetch';
-// import * as Notifications from 'expo-notifications';
+import * as Notifications from 'expo-notifications';
 import { generateUsername } from './generateUsername';
 import { customMapStyle, styles } from './Styles';
 import { firebaseConfig } from './firebaseConfig';
@@ -50,7 +50,6 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
 });
 
 export const startLocationTracking = async () => {
-  // console.log('Starting location tracking...');
   const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
   if (foregroundStatus !== 'granted') {
     console.error('Foreground location permission is required');
@@ -67,16 +66,16 @@ export const startLocationTracking = async () => {
 
   await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
     accuracy: Location.Accuracy.High,
-    distanceInterval: 1,
-    timeInterval: 1000,
-    deferredUpdatesInterval: 1000,
+    distanceInterval: 10,
+    timeInterval: 4000,
+    // deferredUpdatesInterval: 1000,
     foregroundService: {
       notificationTitle: "Location tracking",
       notificationBody: "Location tracking is running",
       notificationColor: "#00ADB5",
     },
-    pausesUpdatesAutomatically: false,
-    activityType: Location.ActivityType.Fitness,
+    pausesUpdatesAutomatically: true,
+    // activityType: Location.ActivityType.Fitness,
     showsBackgroundLocationIndicator: true,
   });
 };
@@ -732,6 +731,7 @@ const MapScreen = ({ searchBarRef }) => {
             {location && location.latitude && location.longitude && (
               <Marker.Animated
                 key={currentUserId}
+                anchor={{ x: 0.5, y: 0.5 }}
                 coordinate={new AnimatedRegion({
                   latitude: location.latitude,
                   longitude: location.longitude,
@@ -756,6 +756,7 @@ const MapScreen = ({ searchBarRef }) => {
               .map(([id, user]) => (
                 <Marker.Animated
                   key={id}
+                  anchor={{ x: 0.5, y: 0.5 }}
                   coordinate={new AnimatedRegion({
                     latitude: user.location.latitude,
                     longitude: user.location.longitude,
@@ -903,9 +904,7 @@ const FriendsScreen = ({ navigation, focusSearchBar }) => {
           // onPress={() => { console.log('Add friend button pressed:', currentUserId); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }}
           onPress={() => {
             navigation.navigate('Map');
-            // setTimeout(() => {
             focusSearchBar();
-            // }, 500);
           }}
         />
       </View>
@@ -1146,6 +1145,20 @@ const App = () => {
     };
 
     checkUserData();
+
+    Notifications.requestPermissionsAsync();
+
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+
+    // return () => {
+    //   TaskManager.unregisterAllTasksAsync();
+    // };
   }, []);
 
   const handleFinishOnboarding = (username, userId) => {

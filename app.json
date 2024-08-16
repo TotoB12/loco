@@ -32,6 +32,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#212832"
       },
+      "icon": "./assets/icon.png",
       "package": "com.antoninbeliard.loco",
       "config": {
         "googleMaps": {

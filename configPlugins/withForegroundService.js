@@ -6,7 +6,6 @@ const withForegroundService = (config) => {
   return withAndroidManifest(config, async (config) => {
     const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(config.modResults);
 
-    // Add meta-data items
     AndroidConfig.Manifest.addMetaDataItemToMainApplication(
       mainApplication,
       'com.antoninbeliard.loco.foregroundservice.notification_channel_name',
@@ -26,7 +25,6 @@ const withForegroundService = (config) => {
       'resource',
     );
 
-    // Add services
     mainApplication.service = mainApplication.service || [];
     mainApplication.service.push({
       $: {
@@ -47,7 +45,6 @@ const withForegroundService = (config) => {
       },
     });
 
-    // Copy the color.xml file
     const srcFilePath = path.join(__dirname, 'color.xml');
     const resFilePath = path.join(
       await AndroidConfig.Paths.getResourceFolderAsync(config.modRequest.projectRoot),
